@@ -1,0 +1,8 @@
+User-agent: *
+Disallow: /dashboard
+Disallow: /api
+Disallow: /devices/*/logs
+Disallow: /devices/*/configuration
+Allow: /
+
+Sitemap: https://neosync.neomatica.ru/sitemap.xml

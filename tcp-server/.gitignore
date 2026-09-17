@@ -1,0 +1,10 @@
+bin/
+*/logs/
+logs/
+.env
+.env.production
+*.env.dev
+*.env
+build/
+/[0-9][0-9].[0-9][0-9]/
+go1.23.0.*

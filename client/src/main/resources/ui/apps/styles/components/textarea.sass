@@ -1,0 +1,18 @@
+$transition-speed: 0.12s
+$border-color-default: #888
+$border-color-hover: #ccc
+$border-color-focus: var(--color-primary-base)
+
+textarea
+    padding: 0.5rem 0.75rem
+    outline: none
+    width: 100%
+    min-height: 100px
+    border-radius: 0.375rem
+    font-size: 0.875rem
+    border: 1px solid #d1d5db
+    background: transparent
+    transition: $transition-speed
+
+    &:focus
+        border: 1px solid #afb5c0

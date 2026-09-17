@@ -1,0 +1,48 @@
+ALTER TABLE companies ADD COLUMN source_metadata JSONB NOT NULL DEFAULT '{}'::jsonb;
+
+ALTER TABLE user_cores
+    ADD COLUMN force_neosync_configuration_priority BOOLEAN NOT NULL DEFAULT FALSE;
+
+
+ALTER TABLE company_tasks
+    ADD COLUMN expires_at TIMESTAMPTZ,
+    ADD COLUMN last_sent_at TIMESTAMPTZ,
+    ADD COLUMN confirmation_deadline TIMESTAMPTZ,
+    ADD COLUMN next_attempt_at TIMESTAMPTZ,
+    ADD COLUMN last_observed_cfg_hash BIGINT,
+    ADD COLUMN last_observed_at TIMESTAMPTZ,
+    ADD COLUMN attempt_token TEXT,
+    ADD COLUMN lease_until TIMESTAMPTZ;
+
+UPDATE company_tasks AS task
+SET expires_at = company.created_at + company.ttl * INTERVAL '24 hours'
+FROM companies AS company WHERE company.id = task.company_id;
+ALTER TABLE company_tasks ALTER COLUMN expires_at SET NOT NULL;
+UPDATE company_tasks SET attempts = 0 WHERE attempts IS NULL;
+ALTER TABLE company_tasks ALTER COLUMN attempts SET NOT NULL;
+
+-- Existing sends have no reliable timestamp: allow time for confirmation first.
+UPDATE company_tasks SET status = 'awaiting_confirmation',
+    confirmation_deadline = now() + INTERVAL '2 minutes'
+WHERE status = 'running';
+UPDATE company_tasks SET status = 'expired', error_message = 'campaign expired'
+WHERE (status IN ('pending', 'awaiting_confirmation') AND expires_at <= now())
+    OR (status = 'failed' AND error_message = 'campaign expired');
+
+CREATE INDEX idx_company_tasks_delivery ON company_tasks (expires_at, device_id)
+WHERE status IN ('pending', 'queued', 'sending', 'awaiting_confirmation');
+COMMENT ON COLUMN company_tasks.status IS 'Task status: pending, queued, sending, awaiting_confirmation, completed, failed, expired, cancelled';
+
+WITH stats AS (
+    SELECT company_id, count(*) AS total,
+        count(*) FILTER (WHERE status IN ('pending', 'queued', 'sending', 'awaiting_confirmation')) AS active,
+        count(*) FILTER (WHERE status = 'completed') AS completed,
+        count(*) FILTER (WHERE status = 'cancelled') AS cancelled
+    FROM company_tasks GROUP BY company_id
+)
+UPDATE companies SET status = CASE
+    WHEN stats.active > 0 THEN 'running'
+    WHEN stats.completed = stats.total THEN 'completed'
+    WHEN stats.cancelled = stats.total THEN 'cancelled'
+    ELSE 'failed' END
+FROM stats WHERE companies.id = stats.company_id;

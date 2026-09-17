@@ -1,0 +1,12 @@
+sudo systemctl daemon-reload        # Перезагрузка systemd для применения изменений
+sudo systemctl start http-systemd-amd64     # Запусков сервисов
+sudo systemctl enable http-systemd-amd64    # Включение автозапуска при старте системы
+sudo systemctl status http-systemd-amd64    # Проверяет статус сервиса
+
+journalctl -u http-systemd-amd64 -f   # Просмотр логов в реальном времени
+
+# redis
+sudo systemctl status redis
+
+# rabbitmq
+sudo systemctl status rabbitmq-server

@@ -1,0 +1,259 @@
+#!/usr/bin/env bash
+# NeoSync tcp-log analysis by IMEI: connect / sync / CFG / telemetry.
+#
+# To merge raw lines into one file first:
+#   bash scripts/extract_imei_logs.sh <IMEI> <logs_path> [--from DD.MM.YYYY] [--to DD.MM.YYYY]
+#
+# Usage:
+#   bash scripts/analyze_imei_traffic.sh 862843047104450 tcp-server/logs
+#   bash scripts/analyze_imei_traffic.sh 862843047104450 tcp-server/logs --from 01.06.2026 --to 30.06.2026
+#
+# Fix CRLF on server: sed -i 's/\r$//' scripts/analyze_imei_traffic.sh
+
+set -euo pipefail
+
+IMEI="${1:-}"
+LOG_ROOT="${2:-}"
+FROM_DATE="${FROM_DATE:-}"
+TO_DATE="${TO_DATE:-}"
+
+usage() {
+  cat <<'EOF'
+Usage:
+  analyze_imei_traffic.sh <IMEI> <logs_path> [--from DD.MM.YYYY] [--to DD.MM.YYYY]
+
+Examples:
+  bash scripts/analyze_imei_traffic.sh 862843047104450 ~/neosync/tcp-server/logs
+  bash scripts/analyze_imei_traffic.sh 862843047104450 tcp-server/logs --from 01.06.2026 --to 30.06.2026
+EOF
+}
+
+[[ -z "$IMEI" || -z "$LOG_ROOT" ]] && usage && exit 1
+
+shift 2 || true
+while [[ $# -gt 0 ]]; do
+  case "$1" in
+    --from) FROM_DATE="$2"; shift 2 ;;
+    --to)   TO_DATE="$2"; shift 2 ;;
+    -h|--help) usage; exit 0 ;;
+    *) echo "Unknown arg: $1" >&2; usage; exit 1 ;;
+  esac
+done
+
+WORK="$(mktemp -d)"
+trap 'rm -rf "$WORK"' EXIT
+
+count() {
+  local n=0
+  n=$(grep -c "$1" "$FILTERED" 2>/dev/null) || n=0
+  echo "$n"
+}
+
+collect_lines() {
+  local root="$1"
+  local imei="$2"
+  local out="$3"
+
+  : > "$out"
+
+  if [[ -f "$root" ]]; then
+    grep -F "imei={$imei}" "$root" >> "$out" 2>/dev/null || true
+    return
+  fi
+
+  find "$root" \( -name "${imei}.log" -o -name "server.log" -o -name "session.log" \) -type f 2>/dev/null | while read -r f; do
+    if [[ "$(basename "$f")" == "${imei}.log" ]]; then
+      cat "$f" >> "$out"
+    else
+      grep -F "imei={$imei}" "$f" >> "$out" 2>/dev/null || true
+    fi
+  done
+
+  find "$root" -name 'log_*.zip' -type f 2>/dev/null | while read -r z; do
+    unzip -p "$z" "${imei}.log" 2>/dev/null >> "$out" || true
+    unzip -p "$z" "*/${imei}.log" 2>/dev/null >> "$out" || true
+    unzip -l "$z" 2>/dev/null | awk '/server\.log$/ {print $4}' | while read -r inner; do
+      unzip -p "$z" "$inner" 2>/dev/null | grep -F "imei={$imei}" >> "$out" || true
+    done
+    unzip -l "$z" 2>/dev/null | awk '/session\.log$/ {print $4}' | while read -r inner; do
+      unzip -p "$z" "$inner" 2>/dev/null | grep -F "imei={$imei}" >> "$out" || true
+    done
+  done
+}
+
+RAW="$WORK/raw.log"
+collect_lines "$LOG_ROOT" "$IMEI" "$RAW"
+
+if [[ ! -s "$RAW" ]]; then
+  echo "No lines for IMEI $IMEI in $LOG_ROOT" >&2
+  echo "Check log_DDMMYYYY/${IMEI}.log or server.log / log_*.zip archives" >&2
+  exit 1
+fi
+
+sort -u "$RAW" | awk '
+  /^\[[0-9]{2}\.[0-9]{2}\.[0-9]{4} [0-9]{2}:[0-9]{2}:[0-9]{2}\]/ { print }
+' > "$WORK/sorted.log"
+
+FILTERED="$WORK/sorted.log"
+if [[ -n "$FROM_DATE" || -n "$TO_DATE" ]]; then
+  awk -v from="$FROM_DATE" -v to="$TO_DATE" '
+    function d(s,   a) {
+      split(substr(s, 2, 10), a, ".")
+      return a[3] a[2] a[1]
+    }
+    /^\[[0-9]{2}\.[0-9]{2}\.[0-9]{4}/ {
+      ds = d($0)
+      ok = 1
+      if (from != "") {
+        split(from, fa, ".")
+        ff = fa[3] fa[2] fa[1]
+        if (ds < ff) ok = 0
+      }
+      if (to != "") {
+        split(to, ta, ".")
+        tt = ta[3] ta[2] ta[1]
+        if (ds > tt) ok = 0
+      }
+      if (ok) print
+    }
+  ' "$WORK/sorted.log" > "$WORK/filtered.log"
+  FILTERED="$WORK/filtered.log"
+fi
+
+TOTAL_LINES=$(wc -l < "$FILTERED" | tr -d ' ')
+
+CONNECT=$(count 'Successful connected to server')
+SESSION=$(count 'Successful create session')
+SYNC=$(count 'SyncPackEventHandler')
+GET_CFG_ENC=$(count 'Encode_GetCfgPacket')
+GET_CFG_PULL=$(count 'Pulling configuration from device')
+GET_CFG_REQ=$(count 'Requesting configuration from device')
+SET_CFG_PUSH=$(count 'Pushing configuration to device')
+SET_CFG_BULK=$(count 'BulkConfiguration')
+CMD_SENT=$(count 'Encode_CommandPacket')
+CMD_RECV=$(count 'ParseCommandPacket')
+TELEM_COM0=$(count "-> 'COM0")
+TELEM_ADM20=$(count 'ADM20INFO')
+TELEM_BLE=$(count 'BLESENSORINFO')
+TELEM_FUEL=$(count 'FUELINFO')
+
+FIRST_LINE=$(head -1 "$FILTERED" | sed 's/^\[\([^]]*\)\].*/\1/' || true)
+LAST_LINE=$(tail -1 "$FILTERED" | sed 's/^\[\([^]]*\)\].*/\1/' || true)
+FIRST_CONNECT=$(grep 'Successful connected to server' "$FILTERED" | head -1 | sed 's/^\[\([^]]*\)\].*/\1/' || true)
+LAST_CONNECT=$(grep 'Successful connected to server' "$FILTERED" | tail -1 | sed 's/^\[\([^]]*\)\].*/\1/' || true)
+FIRST_SYNC=$(grep 'SyncPackEventHandler' "$FILTERED" | head -1 | sed 's/^\[\([^]]*\)\].*/\1/' || true)
+
+EST_BYTES=$(awk '
+  /Sent [0-9]+ bytes/ {
+    for (i = 1; i <= NF; i++) if ($i == "Sent") { sum += $(i+1); break }
+  }
+  /bytes=\{[0-9]+\}/ {
+    if (match($0, /bytes=\{([0-9]+)\}/, m)) sum += m[1]
+  }
+  END { print sum+0 }
+' "$FILTERED")
+
+DAILY="$WORK/daily.tsv"
+awk '
+  /^\[[0-9]{2}\.[0-9]{2}\.[0-9]{4}/ {
+    day = substr($0, 2, 10)
+    if ($0 ~ /Successful connected to server/) c[day]++
+    if ($0 ~ /SyncPackEventHandler/) s[day]++
+    if ($0 ~ /Encode_GetCfgPacket|Pulling configuration|Requesting configuration/) g[day]++
+    if ($0 ~ /Pushing configuration|BulkConfiguration/) p[day]++
+    if ($0 ~ /ParseCommandPacket/) r[day]++
+  }
+  END {
+    print "date\tconnect\tsync\tget_cfg\tset_cfg\tcmd_resp"
+    for (d in c) days[d]=1
+    for (d in s) days[d]=1
+    for (d in g) days[d]=1
+    for (d in p) days[d]=1
+    for (d in r) days[d]=1
+    n = asorti(days, sorted)
+    for (i = 1; i <= n; i++) {
+      d = sorted[i]
+      printf "%s\t%d\t%d\t%d\t%d\t%d\n", d, c[d]+0, s[d]+0, g[d]+0, p[d]+0, r[d]+0
+    }
+  }
+' "$FILTERED" > "$DAILY"
+
+MEDIAN_RECONNECT="n/a (need gawk)"
+if command -v gawk >/dev/null 2>&1; then
+  MEDIAN_RECONNECT=$(gawk '
+    /Successful connected to server/ {
+      ts = substr($0, 2, 19)
+      split(ts, a, /[.: ]/)
+      epoch = mktime(sprintf("%04d-%02d-%02d %02d:%02d:%02d", a[3], a[2], a[1], a[4], a[5], a[6]))
+      if (prev > 0 && epoch > 0) {
+        diff = epoch - prev
+        if (diff > 0 && diff < 86400) { n++; d[n] = diff }
+      }
+      if (epoch > 0) prev = epoch
+    }
+    END {
+      if (n == 0) { print "n/a"; exit }
+      asort(d)
+      if (n % 2) printf "%d sec (~%.1f min)\n", d[(n+1)/2], d[(n+1)/2]/60
+      else printf "%d sec (~%.1f min)\n", (d[n/2]+d[n/2+1])/2, (d[n/2]+d[n/2+1])/2/60
+    }
+  ' "$FILTERED")
+fi
+
+DAYS_COVERED=$(awk -F'\t' 'NR>1 {print $1}' "$DAILY" | wc -l | tr -d ' ')
+SYNC_PER_DAY=0
+if [[ "$DAYS_COVERED" -gt 0 ]]; then
+  SYNC_PER_DAY=$((SYNC / DAYS_COVERED))
+fi
+
+echo "============================================================"
+echo " NeoSync traffic analysis | IMEI: $IMEI"
+echo " Log root: $LOG_ROOT"
+[[ -n "$FROM_DATE" ]] && echo " From: $FROM_DATE"
+[[ -n "$TO_DATE" ]] && echo " To:   $TO_DATE"
+echo "============================================================"
+echo ""
+echo "Lines in sample:       $TOTAL_LINES"
+echo "Log coverage:          $FIRST_LINE  ->  $LAST_LINE  ($DAYS_COVERED days with events)"
+if [[ -n "$FROM_DATE" && -n "$FIRST_LINE" && "$FIRST_LINE" > "${FROM_DATE} 00:00:00" ]]; then
+  echo "WARNING: first log event is AFTER --from date (older logs missing or archived?)"
+fi
+echo ""
+echo "--- Events ---"
+echo "Connect (hello):       $CONNECT"
+echo "Create session:        $SESSION"
+echo "Sync (from device):    $SYNC  (~$SYNC_PER_DAY/day)"
+echo "GET_CFG (encode):      $GET_CFG_ENC"
+echo "GET_CFG (pull/req):    $((GET_CFG_PULL + GET_CFG_REQ))"
+echo "SET_CFG (push):        $SET_CFG_PUSH"
+echo "SET_CFG (bulk):        $SET_CFG_BULK"
+echo "Commands -> device:    $CMD_SENT"
+echo "Responses <- device:   $CMD_RECV"
+echo "  COM0 responses:      $TELEM_COM0"
+echo "  ADM20INFO:           $TELEM_ADM20"
+echo "  BLESENSORINFO:       $TELEM_BLE"
+echo "  FUELINFO:            $TELEM_FUEL"
+echo ""
+echo "--- Timing ---"
+echo "First connect:         ${FIRST_CONNECT:-n/a}"
+echo "Last connect:          ${LAST_CONNECT:-n/a}"
+echo "First sync:            ${FIRST_SYNC:-n/a}"
+echo "Median reconnect:      $MEDIAN_RECONNECT"
+echo ""
+echo "--- Traffic estimate (logged bytes only) ---"
+echo "Sum bytes=/Sent:       ~$EST_BYTES bytes ($(awk -v b="$EST_BYTES" 'BEGIN { printf "%.1f KB", b/1024 }'))"
+echo "  (sync/keepalive size not logged; SIM traffic = all servers + TCP overhead)"
+echo ""
+echo "--- Rough NeoSync sync-only estimate ---"
+echo "  ~${SYNC_PER_DAY} sync/day x ~26 B round-trip ~= $(( SYNC_PER_DAY * 26 / 1024 )) KB/day protocol payload"
+echo ""
+echo "--- Daily (TSV) ---"
+column -t -s $'\t' "$DAILY" 2>/dev/null || cat "$DAILY"
+echo ""
+cp "$DAILY" "./${IMEI}-traffic-daily.tsv" 2>/dev/null && echo "Saved: ./${IMEI}-traffic-daily.tsv" || true
+
+echo ""
+echo "--- Find archived logs (run manually) ---"
+echo "  find tcp-server/logs -name 'log_*.zip' | head"
+echo "  find tcp-server/logs -name '${IMEI}.log' | sort"
+echo "  ls -la tcp-server/logs/log_0{1..19}062026/ 2>/dev/null | head"

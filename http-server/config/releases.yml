@@ -1,0 +1,368 @@
+releases:
+    - version: '1.2.0'
+      date: ''
+      changes:
+          ru:
+              added:
+                  - 'Добавлены шаблоны конфигураций и массовая настройка до 250 устройств.'
+                  - 'Добавлен выбор модели устройств и улучшена проверка совместимости в мастере настроек.'
+                  - 'Улучшен вид мастера настроек и автоматическое формирование названия массовой настройки.'
+                  - 'Добавлен принудительный приоритет конфигурации NeoSync.'
+                  - 'Добавлены подробные этапы применения конфигурации, ожидание подтверждения и повторные попытки отправки.'
+                  - 'Добавлены статус синхронизации, дата обновления прошивки и дата последнего изменения настроек.'
+                  - 'Добавлено автообновление телеметрии, BLE/RS485, данных питания, входов и датчиков.'
+                  - 'Добавлены немедленная и отложенная отправка команд, а также ограничения действий для устройств не на связи.'
+                  - 'Улучшены интерфейс, таблицы, поиск, пагинация, импорт и работа с большими списками устройств.'
+                  - 'Обновлён дизайн писем и добавлен выбор языка отправки.'
+                  - 'Обновлена логика авторизации, обновления токенов и завершения сессий. Улучшена защита PoW и от повторных запросов.'
+                  - 'Улучшена работа сервера, TCP-соединений, базы данных, телеметрии и обработка сетевых ошибок.'
+              fixed:
+                  - 'Исправлены ошибки в работе шаблонов конфигураций.'
+                  - 'Исправлено преждевременное завершение массовой задачи с ошибкой при получении старого хеша конфигурации.'
+                  - 'Исправлена обработка отключений, отмены и истечения срока жизни массовых задач.'
+                  - 'Исправлена работа заморозки координат и добавлен выбор входа зажигания.'
+                  - 'Исправлены ошибки в настройках конфигурации и отображении данных датчиков.'
+                  - 'Исправлены ошибки отображения и работы устройств P50LTE, ADM007BLE и ADM333.'
+                  - 'Исправлены ошибки отображения состояния подключения, владельца и данных устройств.'
+                  - 'Исправлена работа с устройствами без владельца и переносом устройств между аккаунтами.'
+                  - 'Исправлены ошибки автообновления списков, аналитики и отображения состояния команд.'
+                  - 'Исправлены ошибки отправки писем, проверки SmartCaptcha и работы ссылки восстановления пароля.'
+          en:
+              added:
+                  - 'Added configuration templates and bulk configuration for up to 250 devices.'
+                  - 'Added device model selection and improved compatibility checks in the configuration wizard.'
+                  - 'Improved the configuration wizard interface and automatic naming of bulk configurations.'
+                  - 'Expanded bulk configuration CSV exports with launch settings and configuration source information.'
+                  - 'Added forced NeoSync configuration priority when synchronizing with a device.'
+                  - 'Added detailed configuration delivery stages, confirmation waiting, and automatic retries.'
+                  - 'Added configuration synchronization status, firmware update date, and last settings update date.'
+                  - 'Added automatic updates for telemetry, BLE/RS485, power, inputs, and sensor data.'
+                  - 'Added immediate and delayed command execution, along with action restrictions for offline devices.'
+                  - 'Improved the interface, tables, search, pagination, import, and handling of large device lists.'
+                  - 'Updated the email design and added language selection for outgoing emails.'
+                  - 'Updated authentication, token refresh, and session termination. Improved PoW and protection against duplicate requests.'
+                  - 'Added a cookie consent banner, Yandex Metrica, and new analytics metrics.'
+                  - 'Improved server performance, TCP connections, database handling, telemetry processing, and network error handling.'
+              fixed:
+                  - 'Fixed issues with configuration templates.'
+                  - 'Fixed bulk tasks failing prematurely when a device reported an old configuration hash.'
+                  - 'Fixed handling of disconnections, cancellation, and expiration of bulk tasks.'
+                  - 'Clarified time priority mode names and their translations.'
+                  - 'Fixed coordinate freeze behavior and added ignition input selection.'
+                  - 'Fixed issues in configuration settings and sensor data display.'
+                  - 'Fixed display and operation issues for P50LTE, ADM007BLE, and ADM333 devices.'
+                  - 'Fixed issues with connection status, device owner, and device data display.'
+                  - 'Fixed handling of ownerless devices and device transfers between accounts.'
+                  - 'Fixed issues with automatic list updates, analytics, and command status display.'
+                  - 'Fixed issues with email sending, SmartCaptcha validation, and password reset links.'
+          es:
+              added:
+                  - 'Se agregaron plantillas de configuración y configuración masiva para hasta 250 dispositivos.'
+                  - 'Se agregó la selección del modelo de dispositivo y se mejoraron las comprobaciones de compatibilidad en el asistente de configuración.'
+                  - 'Se mejoraron la interfaz del asistente y la generación automática del nombre de la configuración masiva.'
+                  - 'Se amplió la exportación de configuraciones masivas a CSV con los parámetros de ejecución y la información del origen de la configuración.'
+                  - 'Se agregó la prioridad forzada de la configuración de NeoSync al sincronizar con un dispositivo.'
+                  - 'Se agregaron etapas detalladas de aplicación de la configuración, espera de confirmación y reintentos automáticos.'
+                  - 'Se agregaron el estado de sincronización de configuración, la fecha de actualización del firmware y la fecha del último cambio de configuración.'
+                  - 'Se agregó la actualización automática de telemetría, BLE/RS485, alimentación, entradas y datos de sensores.'
+                  - 'Se agregó la ejecución inmediata y diferida de comandos, junto con restricciones de acciones para dispositivos sin conexión.'
+                  - 'Se mejoraron la interfaz, las tablas, la búsqueda, la paginación, la importación y el manejo de grandes listas de dispositivos.'
+                  - 'Se actualizó el diseño de los correos electrónicos y se agregó la selección de idioma para el envío.'
+                  - 'Se actualizaron la autenticación, la renovación de tokens y el cierre de sesiones. Se mejoraron PoW y la protección contra solicitudes duplicadas.'
+                  - 'Se agregaron el banner de consentimiento de cookies, Yandex Metrica y nuevos indicadores de analítica.'
+                  - 'Se mejoró el funcionamiento del servidor, las conexiones TCP, la base de datos, la telemetría y el manejo de errores de red.'
+              fixed:
+                  - 'Se corrigieron errores en las plantillas de configuración.'
+                  - 'Se corrigió el fallo prematuro de las tareas masivas cuando el dispositivo enviaba un hash de configuración anterior.'
+                  - 'Se corrigió el manejo de desconexiones, cancelación y vencimiento de las tareas masivas.'
+                  - 'Se aclararon los nombres de los modos de prioridad de tiempo y sus traducciones.'
+                  - 'Se corrigió el funcionamiento de la congelación de coordenadas y se agregó la selección de entrada de encendido.'
+                  - 'Se corrigieron errores en la configuración y en la visualización de datos de sensores.'
+                  - 'Se corrigieron errores de visualización y funcionamiento en dispositivos P50LTE, ADM007BLE y ADM333.'
+                  - 'Se corrigieron errores en la visualización del estado de conexión, propietario y datos de los dispositivos.'
+                  - 'Se corrigió el manejo de dispositivos sin propietario y la transferencia de dispositivos entre cuentas.'
+                  - 'Se corrigieron errores en la actualización automática de listas, analítica y visualización del estado de comandos.'
+                  - 'Se corrigieron errores en el envío de correos electrónicos, la validación de SmartCaptcha y los enlaces de recuperación de contraseña.'
+    - version: '1.1.3'
+      date: '21.05.2026'
+      changes:
+          ru:
+              added:
+                  - 'Добавлена возможность импорта сразу в группы и пользователей.'
+                  - 'Добавлен функционал трансфера устройств сразу в несколько аккаунтов.'
+                  - 'Добавлена сортировка колонок в таблицах.'
+                  - 'Улучшена работа с трекерами.'
+              fixed:
+                  - 'Исправлены ошибки в настройках конфигурации устройств.'
+                  - 'Возвращён функционал экспорта объектов в меню.'
+          en:
+              added:
+                  - 'Added the ability to import directly into groups and users.'
+                  - 'Added functionality for transferring devices to multiple accounts at once.'
+                  - 'Added column sorting in tables.'
+                  - 'Improved tracker management.'
+              fixed:
+                  - 'Fixed issues in device configuration settings.'
+                  - 'Restored the object export functionality in the menu.'
+          es:
+              added:
+                  - 'Se agregó la posibilidad de importar directamente en grupos y usuarios.'
+                  - 'Se agregó la función de transferir dispositivos a varias cuentas al mismo tiempo.'
+                  - 'Se agregó la clasificación de columnas en las tablas.'
+                  - 'Se mejoró la gestión de rastreadores.'
+              fixed:
+                  - 'Se corrigieron errores en la configuración de dispositivos.'
+                  - 'Se restauró la función de exportación de objetos en el menú.'
+    - version: '1.1.2'
+      date: '27.03.2026'
+      changes:
+          ru:
+              added:
+                  - 'Добавлен поиск по всем колонкам и счётчик общего количества элементов в таблицах.'
+                  - 'Добавлены новые конфигурационные настройки устройства.'
+                  - 'Реализован функционал просмотра групп дочерних аккаунтов для профиля Дилера.'
+                  - 'Улучшены подсказки и читабельность текста.'
+              fixed:
+                  - 'Улучшен и упрощён вид импорта устройств.'
+                  - 'Исправлено отображение обновлённой прошивки на сервисе.'
+          en:
+              added:
+                  - 'Added search across all columns and a total element counter in tables.'
+                  - 'Added new device configuration settings.'
+                  - 'Implemented sub-account group viewing for Dealer profiles.'
+                  - 'Improved hints and text readability.'
+              fixed:
+                  - 'Improved and simplified device import view.'
+                  - 'Fixed updated firmware display on the service.'
+          es:
+              added:
+                  - 'Se agregó búsqueda en todas las columnas y un contador total de elementos en las tablas.'
+                  - 'Se agregaron nuevos ajustes de configuración del dispositivo.'
+                  - 'Funcionalidad implementada para ver grupos de cuentas secundarias para el perfil de Distribuidor.'
+                  - 'Se mejoraron las sugerencias y la legibilidad del texto.'
+              fixed:
+                  - 'Se mejoró y simplificó la vista de importación de dispositivos.'
+                  - 'Se corrigió la visualización de la actualización de firmware en el servicio.'
+    - version: '1.1.1'
+      date: '13.03.2026'
+      changes:
+          ru:
+              added:
+                  - 'Улучшена работа с командами.'
+                  - 'Обновлён интерфейс работы с командами.'
+              fixed:
+                  - 'Убран пароль при создании/редактировании устройства.'
+          en:
+              added:
+                  - 'Improved command handling.'
+                  - 'Updated the command interface.'
+              fixed:
+                  - 'Removed the password when creating/editing a device.'
+          es:
+              added:
+                  - 'Mejorado el manejo de comandos.'
+                  - 'Actualizada la interfaz de comandos.'
+              fixed:
+                  - 'Eliminada la contraseña al crear/editar un dispositivo.'
+    - version: '1.1.0'
+      date: '06.03.2026'
+      changes:
+          ru:
+              added:
+                  - 'Добавлена справочная информация: новые страницы с инструкциями.'
+                  - 'Обновлён интерфейс работы с командами: добавлен функционал отложенных команд, поддержка мгновенной отправки и отправки при следующем подключении устройства.'
+                  - 'Добавлена возможность ограничивать историю команд до 10 элементов с циклической перезаписью старых команд.'
+                  - 'Реализована возможность удаления команды из истории и предварительного просмотра её деталей.'
+                  - 'Обновлены таблицы: добавлена визуализация общего количества страниц, навигация к первой и последней странице, возможность выбора количества элементов на странице.'
+              fixed:
+                  - 'Исправлены ошибки на стороне клиента.'
+          en:
+              added:
+                  - 'Added reference information: new instructional pages.'
+                  - 'Updated commands interface: added delayed commands functionality, support for immediate and next-connection sending.'
+                  - 'History of commands limited to 10 items with cyclic overwriting of old commands.'
+                  - 'Implemented ability to delete commands from history and preview command details.'
+                  - 'Tables updated: total pages displayed, navigation to first and last page, option to select number of items per page.'
+              fixed:
+                  - 'Client-side issues fixed.'
+          es:
+              added:
+                  - 'Añadida información de referencia: nuevas páginas con instrucciones.'
+                  - 'Interfaz de comandos actualizada: añadido funcionalidad de comandos diferidos, soporte para envío inmediato y al siguiente conexión.'
+                  - 'Historial de comandos limitado a 10 elementos con sobrescritura cíclica de los antiguos.'
+                  - 'Implementada la posibilidad de eliminar comandos del historial y previsualizar detalles.'
+                  - 'Tablas actualizadas: visualización del total de páginas, navegación a la primera y última página, opción de seleccionar número de elementos por página.'
+              fixed:
+                  - 'Errores del lado del cliente corregidos.'
+    - version: '1.0.0'
+      date: '02.02.2026'
+      changes:
+          ru:
+              added:
+                  - 'Улучшена логика изменения данных: теперь обновляются только изменённые поля.'
+                  - 'Исправлена поддержка испанского языка.'
+                  - 'Добавлена мобильная версия сервиса.'
+                  - 'Расширен набор доступов для выдачи клиентам.'
+              fixed:
+                  - 'Обновлён индикатор ожидания ответа сервера при работе с кнопками.'
+                  - 'Исправлена ошибка хранения логов устройств: теперь максимальное время хранения — 24 часа.'
+                  - 'Исправлены ошибки отображения интерфейса.'
+          en:
+              added:
+                  - 'Improved data update logic: only modified fields are now updated.'
+                  - 'Fixed support for the Spanish language.'
+                  - 'Added mobile version of the service.'
+                  - 'Expanded the set of permissions available to clients.'
+              fixed:
+                  - 'Updated the server response indicator for button actions.'
+                  - 'Fixed device log storage issue: maximum log retention time is now 24 hours.'
+                  - 'Fixed interface display issues.'
+          es:
+              added:
+                  - 'Mejorada la lógica de actualización de datos: ahora solo se actualizan los campos modificados.'
+                  - 'Corregido el soporte para el idioma español.'
+                  - 'Añadida la versión móvil del servicio.'
+                  - 'Ampliado el conjunto de permisos disponibles para los clientes.'
+              fixed:
+                  - 'Actualizado el indicador de espera de respuesta del servidor al interactuar con botones.'
+                  - 'Corregido el problema de almacenamiento de registros de dispositivos: el tiempo máximo de retención de registros ahora es de 24 horas.'
+                  - 'Corregidos los errores de visualización de la interfaz.'
+    - version: '0.177.0'
+      date: '19.01.2026'
+      changes:
+          ru:
+              added:
+                  - 'Улучшен интерфейс переноса устройства на другой аккаунт.'
+                  - 'Добавлена поддержка клавиш Esc и Enter для удобного управления окнами и подтверждений.'
+              fixed:
+                  - 'Исправлено отображение старых данных в GUI после изменений.'
+                  - 'Исправлена ошибка при подключении нового устройства.'
+          en:
+              added:
+                  - 'Improved the interface for transferring devices to another account.'
+                  - 'Added support for Esc and Enter keys for easier modal and confirmation handling.'
+              fixed:
+                  - 'Fixed the issue with outdated data being displayed in the GUI after changes.'
+                  - 'Fixed the issue when connecting a new device.'
+          es:
+              added:
+                  - 'Mejorada la interfaz para transferir dispositivos a otra cuenta.'
+                  - 'Añadido soporte para las teclas Esc y Enter para facilitar la gestión de modales y confirmaciones.'
+              fixed:
+                  - 'Corregido el problema de visualización de datos antiguos en la interfaz después de los cambios.'
+                  - 'Corregido el problema al conectar un nuevo dispositivo.'
+    - version: '0.176.2'
+      date: '15.01.2026'
+      changes:
+          ru:
+              added:
+                  - 'Добавлено отображение загрузки данных в таблицах до получения данных.'
+                  - 'Добавлена мини анимация кнопок при клике.'
+              fixed:
+                  - 'Обновлён внешний вид окна выбора объектов в группе.'
+          en:
+              added:
+                  - 'Added loading indicators in tables while data is being fetched.'
+                  - 'Added subtle click animation for buttons.'
+              fixed:
+                  - 'Updated the appearance of the group object selection window.'
+          es:
+              added:
+                  - 'Se añadieron indicadores de carga en las tablas mientras se obtienen los datos.'
+                  - 'Se añadió una animación sutil al hacer clic en los botones.'
+              fixed:
+                  - 'Se actualizó la apariencia de la ventana de selección de objetos del grupo.'
+    - version: '0.176.1'
+      date: '13.01.2026'
+      changes:
+          ru:
+              fixed:
+                  - 'После создания и редактирования пользователя окно теперь автоматически закрывается.'
+                  - 'Поле пароля теперь отображается не только при создании пользователя, но и при его редактировании.'
+                  - 'При сохранении профиля пользователя без внесения изменений окно редактирования корректно закрывается.'
+                  - 'Исправлена ошибка повторного открытия меню в Header.'
+                  - 'Обновлён внешний вид и логика окна истории релизов.'
+                  - 'Исправлена ошибка валидации поля телефона при сохранении пустого значения.'
+          en:
+              fixed:
+                  - 'After creating or editing a user, the modal now closes automatically.'
+                  - 'The password field is now visible not only when creating a user, but also when editing.'
+                  - 'When saving a user profile without making changes, the edit modal now closes correctly.'
+                  - 'Fixed the issue with reopening the header menu.'
+                  - 'Updated the UI and behavior of the release history window.'
+                  - 'Fixed phone field validation when saving an empty value.'
+          es:
+              fixed:
+                  - 'Después de crear o editar un usuario, la ventana ahora se cierra automáticamente.'
+                  - 'El campo de contraseña ahora se muestra no solo al crear un usuario, sino también al editarlo.'
+                  - 'Al guardar el perfil del usuario sin realizar cambios, la ventana de edición ahora se cierra correctamente.'
+                  - 'Se corrigió el problema de reapertura del menú en el Header.'
+                  - 'Se actualizó la apariencia y el comportamiento de la ventana de historial de versiones.'
+                  - 'Se corrigió la validación del campo de teléfono al guardar un valor vacío.'
+    - version: '0.176.0'
+      date: '30.12.2025'
+      changes:
+          ru:
+              added:
+                  - 'Добавлен новый язык интерфейса — испанский.'
+                  - 'Реализована настройка "Постановка точек только по истечению периода".'
+                  - 'Добавлен раздел с историей версий сервиса.'
+                  - 'Повышена производительность клиента и снижено количество HTTP-запросов.'
+                  - 'Добавлена поддержка моделей ADM333/333BLE.'
+              fixed:
+                  - 'Исправлено отображение изменений в группах без необходимости обновления страницы.'
+                  - 'Исправлены ошибки, связанные с ролью пользователя.'
+          en:
+              added:
+                  - 'Added a new interface language — Spanish.'
+                  - 'Implemented the setting "Add points only after the period ends".'
+                  - 'Added a service version history section.'
+                  - 'Improved client performance and reduced the number of HTTP requests.'
+                  - 'Added support for ADM333/333BLE models.'
+              fixed:
+                  - 'Fixed the display of group changes without requiring a page refresh.'
+                  - 'Corrected issues related to the User role.'
+          es:
+              added:
+                  - 'Se añadió un nuevo idioma de interfaz — español.'
+                  - 'Se implementó la configuración "Agregar puntos solo después de finalizar el período".'
+                  - 'Se agregó la sección de historial de versiones del servicio.'
+                  - 'Mejorado el rendimiento del cliente y reducido el número de solicitudes HTTP.'
+                  - 'Añadido soporte para los modelos ADM333/333BLE.'
+              fixed:
+                  - 'Se corrigió la visualización de los cambios en los grupos sin necesidad de actualizar la página.'
+                  - 'Se solucionaron problemas relacionados con el rol de Usuario.'
+
+    - version: '0.175.4'
+      date: '26.12.2025'
+      changes:
+          ru:
+              added:
+                  - 'Добавлен файл конфигурации .neosync.'
+                  - 'Добавлено предупреждение о том, что файл конфигурации NeoSync нельзя использовать в других конфигураторах.'
+                  - 'Номера телефонов теперь отображаются с префиксом "+".'
+                  - 'Добавлены новые права доступа для пользователей.'
+                  - 'Реализовано отображение версии на сервисе'
+              fixed:
+                  - 'Убрана подсказка UUID пользователя.'
+                  - 'Реализована возможность указания адреса 0 для ДУТ на шине RS-485.'
+          en:
+              added:
+                  - 'Added .neosync configuration file.'
+                  - 'Added warning that the NeoSync configuration file cannot be used in other configurators.'
+                  - 'Phone numbers are now displayed with a "+" prefix.'
+                  - 'New access permissions have been added for users.'
+                  - 'Service version display implemented.'
+              fixed:
+                  - 'Removed UUID hint for user.'
+                  - 'Implemented ability to set address 0 for DUT on RS-485 bus.'
+          es:
+              added:
+                  - 'Se añadió el archivo de configuración .neosync.'
+                  - 'Se agregó una advertencia de que el archivo de configuración de NeoSync no puede usarse en otros configuradores.'
+                  - 'Los números de teléfono ahora se muestran con el prefijo "+".'
+                  - 'Se añadieron nuevos permisos de acceso para los usuarios.'
+                  - 'Se implementó la visualización de la versión del servicio.'
+              fixed:
+                  - 'Se eliminó la sugerencia del UUID del usuario.'
+                  - 'Se añadió la posibilidad de establecer la dirección 0 para DUT en el bus RS-485.'

@@ -1,0 +1,128 @@
+#!/bin/bash
+
+############################################
+# Этот bash-скрипт предназначен для подготовки
+# кода к deploy, а именно проверяет размер файлов
+# заменяет локальные данные на внешний IP
+############################################
+
+set -e
+
+export PATH=/usr/local/go/bin:$PATH
+
+# COLORS
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+RED='\033[0;31m'
+NC='\033[0m'
+
+GO_VERSION="1.23.0"
+
+BRANCH="$(git rev-parse --abbrev-ref HEAD)"
+
+HOME="$(git rev-parse --show-toplevel)"
+FILE_CONFIG="client/src/main/resources/ui/apps/.config/config.client.ts"
+FILE_GO_HTTP="http-server/cmd/server/main.go"
+FILE_GO_TCP="tcp-server/cmd/server/main.go"
+
+if [[ "$BRANCH" == "main" ]]; then
+    ENV_FILE=".env.production"
+elif [[ "$BRANCH" == "preprod" ]]; then
+    ENV_FILE=".env.dev"
+else
+    ENV_FILE=".env"
+fi
+
+if [ "$BRANCH" = "preprod" ]; then
+    RELEASE="preprod"
+elif [ "$BRANCH" = "main" ]; then
+    RELEASE="prod"
+else
+    RELEASE="dev"
+fi
+
+cd "$HOME/http-server"
+for file in $(find . -type f -name "*.go"); do
+    if grep -q "fmt.Println" "$file" || grep -q "fmt.Print" "$file"; then
+        echo -e "${RED}Предупреждение: Найдено использование fmt.Println или fmt.Print в файле: $file${NC}"
+    fi
+done
+
+cd "$HOME/tcp-server"
+for file in $(find . -type f -name "*.go"); do
+    if grep -q "fmt.Println" "$file" || grep -q "fmt.Print" "$file"; then
+        echo -e "${RED}Предупреждение: Найдено использование fmt.Println или fmt.Print в файле: $file${NC}"
+    fi
+done
+
+cd "$HOME/client/src/main/resources/ui"
+for file in $(find . -type f \( -name "*.ts" -o -name "*.tsx" \) -not -path "*/node_modules/*"); do
+    if grep -q "console.log" "$file"; then
+        echo -e "${RED}Предупреждение: Найдено использование console.log в файле: $file${NC}"
+    fi
+done
+
+cd "$HOME/client/src/main/resources/ui"
+# Используем sed для замены release
+echo -e "${BLUE}Замена release${NC}"
+if sed -i "s/release: 'dev'/release: '${RELEASE}'/" "$HOME/$FILE_CONFIG"; then
+    echo -e "Значение переменной release заменено $FILE_CONFIG"
+else
+    echo -e "Ошибка: Не удалось заменить значение в файле $FILE_CONFIG."
+    exit 1
+fi
+
+cd "$HOME/http-server"
+if sed -i.bak "s/godotenv.Load()/godotenv.Load(\"$ENV_FILE\")/" "$HOME/$FILE_GO_HTTP"; then
+    echo -e "Значение переменной Load() заменено в $FILE_GO_HTTP"
+else
+    echo -e "Ошибка: Не удалось заменить значение в файле $FILE_GO_HTTP."
+    exit 1
+fi
+
+cd "$HOME/tcp-server"
+if sed -i.bak "s/godotenv.Load()/godotenv.Load(\"$ENV_FILE\")/" "$HOME/$FILE_GO_TCP"; then
+    echo -e "Значение переменной Load() заменено в $FILE_GO_TCP"
+else
+    echo -e "Ошибка: Не удалось заменить значение в файле $FILE_GO_TCP."
+    exit 1
+fi
+
+cd "$HOME/http-server"
+make build-linux
+size=$(du -sm "$HOME/http-server/bin" | cut -f1)
+if [ "$size" -gt 555 ]; then
+    echo -e "${RED}Ошибка: Размер папки или файла больше 555 МБ: 'http-server/bin' (${size} MB)${NC}"
+    exit 1
+elif [ "$size" -gt 200 ]; then
+    echo -e "${YELLOW}Предупреждение: Размер папки или файла больше 200 МБ: 'http-server/bin' (${size} MB)${NC}"
+else
+    echo -e "${GREEN}Размер папки или файла в пределах нормы: 'http-server/bin' (${size} MB)${NC}"
+fi
+
+cd "$HOME/tcp-server"
+make build-linux
+size=$(du -sm "$HOME/tcp-server/bin" | cut -f1)
+if [ "$size" -gt 555 ]; then
+    echo -e "${RED}Ошибка: Размер папки или файла больше 555 МБ: 'tcp-server/bin' (${size} MB)${NC}"
+    exit 1
+elif [ "$size" -gt 200 ]; then
+    echo -e "${YELLOW}Предупреждение: Размер папки или файла больше 200 МБ: 'tcp-server/bin' (${size} MB)${NC}"
+else
+    echo -e "${GREEN}Размер папки или файла в пределах нормы: 'tcp-server/bin' (${size} MB)${NC}"
+fi
+
+cd "$HOME/client/src/main/resources/ui"
+pnpm i
+pnpm build
+size=$(du -sm "$HOME/client/src/main/resources/ui/dist" | cut -f1)
+if [ "$size" -gt 555 ]; then
+    echo -e "${RED}Ошибка: Размер папки или файла больше 555 МБ: 'client/dist' (${size} MB)${NC}"
+    exit 1
+elif [ "$size" -gt 200 ]; then
+    echo -e "${YELLOW}Предупреждение: Размер папки или файла больше 200 МБ: 'client/dist' (${size} MB)${NC}"
+else
+    echo -e "${GREEN}Размер папки или файла в пределах нормы: 'client/dist' (${size} MB)${NC}"
+fi
+
+echo "Скрипт успешно выполнился!"

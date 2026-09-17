@@ -1,0 +1,12 @@
+#!/bin/bash
+
+VALUE=$1  # true или false
+FILE="/usr/share/nginx/html/neosync/c-r-web/_runtime_config.js"
+
+cat > "$FILE" <<EOL
+window.__APP_CONFIG__ = {
+    TECHNICAL_WORK: $VALUE
+};
+EOL
+
+echo "TECHNICAL_WORK=$VALUE written to $FILE"

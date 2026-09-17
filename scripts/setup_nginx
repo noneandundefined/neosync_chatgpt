@@ -1,0 +1,55 @@
+#!/bin/bash
+
+############################################
+# Этот bash-скрипт предназначен для гастройки
+# nginx конфигурации, а именно заменяет
+# струю web-client весрию на новую
+############################################
+
+set -e
+
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+NC='\033[0m'
+
+HOME="$(git rev-parse --show-toplevel)"
+
+FILE_CONFIG="client/src/main/resources/ui/apps/.config/config.client.ts"
+NGINX_HTML_DIR='/usr/share/nginx/html/neosync'
+DIST_DIR='dist'
+
+echo -e "${BLUE}Проверка наличия необходимых программ...${NC}"
+command -v pnpm >/dev/null 2>&1 || { echo >&2 "pnpm не установлен. Установите его и повторите попытку."; exit 1; }
+command -v nginx >/dev/null 2>&1 || { echo >&2 "nginx не установлен. Установите его и повторите попытку."; exit 1; }
+
+# Используем sed для замены 'dev' на 'prod'
+echo -e "${BLUE}Замена dev на prod${NC}"
+if sed -i 's/release: '\''dev'\''/release: '\''prod'\''/' "$HOME/$FILE_CONFIG"; then
+    echo -e "Значение переменной release заменено на prod в $FILE_CONFIG"
+else
+    echo -e "Ошибка: Не удалось заменить значение в файле $FILE_CONFIG."
+    exit 1
+fi
+
+echo -e "${BLUE}Сборка клиента...${NC}"
+cd "$HOME/client/src/main/resources/ui"
+pnpm i || { echo >&2 "Ошибка установки зависимостей клиента."; exit 1; }
+pnpm build || { echo >&2 "Ошибка сборки клиента."; exit 1; }
+
+echo -e "${BLUE}Создание резервной копии текущих файлов...${NC}"
+sudo mkdir -p /backup/nginx_html
+sudo rm -rf /backup/nginx_html/*
+
+if [ -d "$NGINX_HTML_DIR" ] && [ "$(ls -A $NGINX_HTML_DIR 2>/dev/null)" ]; then
+    sudo cp -r $NGINX_HTML_DIR/* /backup/nginx_html
+fi
+
+echo -e "${BLUE}Настройка nginx | Копирование файлов '$DIST_DIR/*' в '$NGINX_HTML_DIR'${NC}"
+sudo rm -rf $NGINX_HTML_DIR/*
+sudo cp -r $DIST_DIR/* $NGINX_HTML_DIR || { echo >&2 "Ошибка копирования файлов."; exit 1; }
+sudo cp -r ./robots.txt ./sitemap.xml $NGINX_HTML_DIR || { echo >&2 "Ошибка копирования файлов."; exit 1; }
+
+echo -e "${BLUE}Перезагрузка Nginx${NC}"
+sudo systemctl restart nginx || { echo >&2 "Ошибка перезагрузки Nginx."; exit 1; }
+
+echo -e "${GREEN}Скрипт выполнен успешно.${NC}"

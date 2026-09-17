@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="ru">
+	<head>
+		<meta charset="UTF-8" />
+		<meta name="referrer" content="no-referrer" />
+		<title>NeoSync</title>
+		<link rel="icon" type="image/svg+xml" href="/local/templates/neomatica/images/neomatica-logo.svg" />
+		<link rel="apple-touch-icon" href="/local/templates/neomatica/images/neomatica-logo.png" />
+		<link rel="canonical" href="https://neosync.neomatica.ru/" />
+		<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+		<meta name="description" content="NeoSync — сервис удалённой настройки GPS-трекеров и терминалов Neomatica. Управляйте устройствами ADM, конфигурациями и прошивками, отправляйте команды и выполняйте массовую настройку из одного кабинета." />
+		<meta name="keywords" content="neosync, neomatica, adm-rc, nrc, adm, configurator, neomatica configurator, неоматика, неоматика конфигуратор, трекер" />
+		<meta name="robots" content="index, follow" />
+		<meta name="theme-color" content="#fafafa" />
+		<meta name="application-name" content="NeoSync" />
+		<meta name="apple-mobile-web-app-title" content="NeoSync" />
+		<meta name="format-detection" content="telephone=no,email=no" />
+		<meta name="apple-mobile-web-app-status-bar-style" content="white" />
+		<meta http-equiv="x-dns-prefetch-control" content="on" />
+
+		<meta property="og:type" content="website" />
+		<meta property="og:site_name" content="NeoSync" />
+		<meta property="og:title" content="NeoSync" />
+		<meta property="og:description" content="NeoSync — сервис удалённой настройки GPS-трекеров и терминалов Neomatica. Управляйте устройствами ADM, конфигурациями и прошивками, отправляйте команды и выполняйте массовую настройку из одного кабинета." />
+		<meta property="og:image" content="https://neosync.neomatica.ru/local/templates/neomatica/images/neomatica-logo.png" />
+		<meta property="og:url" content="https://neosync.neomatica.ru/" />
+		<meta property="og:locale" content="ru_RU" />
+
+		<meta name="twitter:card" content="summary" />
+		<meta name="twitter:title" content="NeoSync" />
+		<meta name="twitter:description" content="NeoSync — сервис удалённой настройки GPS-трекеров и терминалов Neomatica. Управляйте устройствами ADM, конфигурациями и прошивками, отправляйте команды и выполняйте массовую настройку из одного кабинета." />
+		<meta name="twitter:image" content="https://neosync.neomatica.ru/local/templates/neomatica/images/neomatica-logo.png" />
+
+		<meta name="yandex-verification" content="d45d54446a2d8bfb" />
+
+		<script src="https://smartcaptcha.cloud.yandex.ru/captcha.js" defer></script>
+
+		<!-- style -->
+		<link rel="stylesheet" href="./apps/index.css" />
+		<link rel="stylesheet" href="./apps/styles/mobile.response.css" />
+		<link rel="stylesheet" href="./apps/styles/laptop.response.css" />
+		<link rel="stylesheet" href="./apps/styles/tablet.response.css" />
+		<link rel="stylesheet" href="./apps/styles/components/checkbox.sass" />
+		<link rel="stylesheet" href="./apps/styles/components/table.sass" />
+		<link rel="stylesheet" href="./apps/styles/components/input.sass" />
+		<link rel="stylesheet" href="./apps/styles/components/textarea.sass" />
+		<link rel="stylesheet" href="./apps/styles/components/toastify.sass" />
+		<link rel="stylesheet" href="./apps/styles/components/button.sass" />
+		<link rel="stylesheet" href="./apps/styles/components/loader.sass" />
+		<link rel="stylesheet" href="./apps/styles/components/scroll.sass" />
+		<link rel="stylesheet" href="./apps/styles/components/range.sass" />
+	</head>
+	<body>
+		<!-- Yandex.Metrika counter -->
+		<script type="text/javascript">
+			(function (m, e, t, r, i, k, a) {
+				m[i] =
+					m[i] ||
+					function () {
+						(m[i].a = m[i].a || []).push(arguments);
+					};
+				m[i].l = 1 * new Date();
+				for (var j = 0; j < document.scripts.length; j++) {
+					if (document.scripts[j].src === r) {
+						return;
+					}
+				}
+				(k = e.createElement(t)), (a = e.getElementsByTagName(t)[0]), (k.async = 1), (k.src = r), a.parentNode.insertBefore(k, a);
+			})(window, document, 'script', 'https://mc.yandex.ru/metrika/tag.js?id=111693443', 'ym');
+
+			ym(111693443, 'init', { ssr: true, webvisor: true, clickmap: true, ecommerce: 'dataLayer', referrer: document.referrer, url: location.href, accurateTrackBounce: true, trackLinks: true });
+		</script>
+		<noscript
+			><div><img src="https://mc.yandex.ru/watch/111693443" style="position: absolute; left: -9999px" alt="" /></div
+		></noscript>
+		<!-- /Yandex.Metrika counter -->
+
+		<div id="root"></div>
+
+		<script src="/c-r-web/_runtime_config.js"></script>
+		<script type="module" src="/apps/main.tsx"></script>
+	</body>
+</html>

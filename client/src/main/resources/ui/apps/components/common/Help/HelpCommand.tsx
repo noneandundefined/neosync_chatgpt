@@ -1,0 +1,65 @@
+import Tooltip from '@/components/ui/Tooltip';
+import { useTranslation } from 'react-i18next';
+import ChevronLeft from '@/components/@icons/chevron-left';
+import { HELP_COMMANDs_NOTE_KEY, HELP_COMMANDs_STEPs } from '@/constants/Help.constant';
+
+interface HelpCommandProps {
+	title: string;
+	description: string;
+	changeSection: () => void;
+}
+
+const HelpCommand: React.FC<HelpCommandProps> = ({ title, description, changeSection }) => {
+	const { t } = useTranslation();
+
+	return (
+		<div className="space-y-5">
+			<div className="flex items-center gap-3">
+				<Tooltip title={t('label.back')}>
+					<div onClick={changeSection} className="cursor-pointer p-1 rounded hover:bg-white">
+						<ChevronLeft fill="#49525f" size={22} />
+					</div>
+				</Tooltip>
+
+				<p className="text-[#555] font-medium text-[16px]">{t('message.help-breadcrumb')}</p>
+			</div>
+
+			<div className="space-y-1">
+				<p className="font-medium text-[18px] text-[#49525f]">{title}</p>
+				<p className="text-[#49525f]">{description}</p>
+			</div>
+
+			<div className="flex flex-col lg:flex-row items-stretch gap-5">
+				<div>
+					<img src="/local/templates/neosync/help/gui-commands.png" alt={t('message.help-command-image-alt')} draggable={false} />
+				</div>
+
+				<div className="bg-[#f5faf6] lg:max-w-[25rem] p-5 border border-[#def2e4] rounded-[10px] space-y-8">
+					<p className="font-medium text-[16px] text-[#1e772e]">{t('message.help-how-it-works')}</p>
+
+					<div className="space-y-8">
+						{HELP_COMMANDs_STEPs.map((step) => (
+							<div key={step.id} className="flex items-start gap-5">
+								<div className="flex items-center justify-center bg-[#1e772e] min-h-[20px] min-w-[20px] rounded-full">
+									<p className="text-white text-sm font-medium">{step.id}</p>
+								</div>
+
+								<div>
+									<p className="font-medium text-[16px]">{t(`message.${step.titleKey}`)}</p>
+									<p className="text-[14px] text-[#49525f]">{t(`message.${step.descriptionKey}`)}</p>
+								</div>
+							</div>
+						))}
+					</div>
+				</div>
+			</div>
+
+			<div className="space-y-1">
+				<p className="font-medium text-[16px] text-[#49525f]">{t('message.help-note-title')}</p>
+				<p className="text-[#49525f]">{t(`message.${HELP_COMMANDs_NOTE_KEY}`)}</p>
+			</div>
+		</div>
+	);
+};
+
+export default HelpCommand;

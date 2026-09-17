@@ -1,0 +1,25 @@
+#!/bin/bash
+
+############################################
+# Этот bash-скрипт предназначен
+# для полного бекапа БД postgresql
+# каждые 3 дня, бекапы старше 15 дней удаляются
+############################################
+
+set -e
+
+BACKUP_PATH="/var/backups/psql"
+PSQL_USER="neosync.db-adm1n0f1g4t12"
+PSQL_PASSWORD="neosync.db-p@55w0rd"
+PSQL_DB="neosync"
+DATE=$(date +"%F")
+FILENAME="backup_psql_${PSQL_DB}_$DATE.backup"
+
+export PGPASSWORD=$PG_PASSWORD
+mkdir -p $BACKUP_PATH
+
+pg_dump -U $PSQL_USER -d $PSQL_DB -F c -f "$BACKUP_PATH/$FILENAME"
+
+find $BACKUP_PATH -type -f -name "backup_psql_${PSQL_DB}_*.backup" -mtime +15 -exec rm {} \;
+
+unset PGPASSWORD

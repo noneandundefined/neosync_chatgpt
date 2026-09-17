@@ -1,0 +1,34 @@
+#!/bin/bash
+
+set -e
+
+# COLORS
+GREEN='\033[0;32m'
+BLUE='\033[0;34m'
+RED='\033[0;31m'
+NC='\033[0m'
+
+HOME="$(git rev-parse --show-toplevel)"
+GO_VERSION="1.23.0"
+
+sudo cp "$HOME/.systemd/http-systemd-amd64.service" /etc/systemd/system/
+sudo cp "$HOME/.systemd/tcp-systemd-amd64.service" /etc/systemd/system/
+
+sudo systemctl stop http-systemd-amd64.service
+sudo systemctl stop tcp-systemd-amd64.service
+
+sudo systemctl daemon-reload
+
+sudo systemctl start http-systemd-amd64.service
+sudo systemctl start tcp-systemd-amd64.service
+
+sudo systemctl status http-systemd-amd64.service
+sudo systemctl status tcp-systemd-amd64.service
+
+sudo systemctl enable http-systemd-amd64.service
+sudo systemctl enable tcp-systemd-amd64.service || true
+
+sudo systemctl stop tcp-systemd-amd64.service
+sudo systemctl start tcp-systemd-amd64.service
+
+echo -e "${GREEN}Успешное создания и запуска systemd сервисов!${NC}"

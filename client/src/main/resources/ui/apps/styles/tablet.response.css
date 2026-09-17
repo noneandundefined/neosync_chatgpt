@@ -1,0 +1,49 @@
+@media only screen and (max-width: 1250px) {
+	#application__content {
+		margin-left: 0;
+		gap: 0;
+	}
+
+	#table th {
+		display: none;
+	}
+
+	#table td {
+		max-width: 100% !important;
+		display: flex;
+		align-items: start;
+		justify-content: space-between;
+	}
+
+	#table #td-data-available {
+		justify-content: center;
+	}
+
+	#table td::before {
+		content: attr(data-label);
+		font-weight: 600;
+		color: #49525f;
+		text-transform: capitalize;
+		max-width: 40% !important;
+	}
+
+	#table tbody tr > td {
+		text-align: left !important;
+	}
+
+	#table tbody tr > td > div {
+		justify-content: start;
+	}
+
+	#table tbody #render__expanded__row > tr > td::before {
+		content: none !important;
+	}
+
+	#table tbody #render__expanded__row > tr > td {
+		display: block !important;
+	}
+}
+
+#table .renderExpandedRow > td > div {
+	justify-content: space-between !important;
+}

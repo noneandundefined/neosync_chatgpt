@@ -1,0 +1,59 @@
+#loader-line
+	width: 125%
+	height: 3px
+	display: inline-block
+	position: relative
+	background: rgba(255, 255, 255, 0.15)
+	overflow: hidden
+
+	&::after
+		content: ''
+		width: 100%
+		height: 3px
+		background: #49525f
+		position: absolute
+		top: 0
+		left: 0
+		box-sizing: border-box
+		animation: loader-line 2s linear infinite
+
+#loader-line-error
+	width: 125%
+	height: 3px
+	display: inline-block
+	position: relative
+	background: rgba(255, 255, 255, 0.15)
+	overflow: hidden
+
+	&::after
+		content: ''
+		width: 100%
+		height: 3px
+		background: #b60000
+		position: absolute
+		top: 0
+		left: 0
+		box-sizing: border-box
+
+@keyframes loader-line
+	0%
+		left: 0
+		transform: translateX(-100%)
+	100%
+		left: 100%
+		transform: translateX(0%)
+
+.dots
+	animation: blink 2s infinite
+
+@keyframes blink
+	0%, 20%
+		opacity: 0
+	40%
+		opacity: 1
+	60%
+		opacity: 0
+	80%
+		opacity: 1
+	100%
+		opacity: 0

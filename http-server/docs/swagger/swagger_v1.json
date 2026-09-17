@@ -1,0 +1,4046 @@
+{
+	"openapi": "3.0.0",
+	"info": {
+		"title": "NeoSync API",
+		"version": "1.0.0",
+		"description": "Конфигуратор удаленной настройки терминала от компании Neomatica."
+	},
+	"servers": [
+		{ "url": "http://localhost:8080/api/v1", "description": "Local" },
+		{
+			"url": "https://neosync.neomatica.ru/api/v1",
+			"description": "Production"
+		}
+	],
+	"paths": {
+		"/auth/check": {
+			"get": {
+				"tags": ["Auth"],
+				"summary": "Проверка авторизации",
+				"description": "Проверяет авторизацию по cookie access_token.",
+				"security": [
+					{
+						"cookieAuth": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Статус аутентификации.",
+						"schema": {
+							"type": "object",
+							"additionalProperties": {
+								"type": "boolean"
+							}
+						},
+						"example": {
+							"message": {
+								"authenticated": true
+							}
+						}
+					},
+					"429": {
+						"description": "Слишком много запросов.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Внутренняя ошибка сервера.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/auth/signin": {
+			"post": {
+				"tags": ["Auth"],
+				"summary": "Вход пользователя",
+				"description": "Вход пользователя. Устанавливает access_token и, при remember_me, refresh_token в cookie.",
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/SigninPayload"
+							},
+							"example": {
+								"login": "user@example.com",
+								"password": "password123",
+								"remember_me": true,
+								"turnstile_token": "1x00000000000000000000AA"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Успешный вход, возвращает информацию о пользователе.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"login": { "type": "string" },
+										"uuid": { "type": "string" },
+										"role_code": { "type": "string" },
+										"authenticated": { "type": "boolean" }
+									}
+								},
+								"example": {
+									"login": "user@example.com",
+									"uuid": "123e4567-e89b-12d3-a456-426614174000",
+									"role_code": "USER",
+									"authenticated": true
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Ошибка валидации или неверные данные.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					},
+					"429": {
+						"description": "Слишком много запросов.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Внутренняя ошибка сервера.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/auth/password/reset/request": {
+			"post": {
+				"tags": ["Auth"],
+				"summary": "Запросить сброс пароля",
+				"description": "Отправляет ссылку для сброса пароля на указанный email.",
+				"parameters": [
+					{
+						"name": "email",
+						"in": "query",
+						"description": "Email пользователя",
+						"required": true,
+						"schema": { "type": "string", "format": "email" }
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Ссылка для сброса пароля отправлена.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": { "type": "string" }
+									}
+								},
+								"example": {
+									"message": "Ссылка для сброса пароля отправлена на электронную почту"
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "Обьект не найден.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"429": {
+						"description": "Слишком много запросов.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Внутренняя ошибка сервера.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/auth/password/reset/confirm": {
+			"post": {
+				"tags": ["Auth"],
+				"summary": "Сброс пароля",
+				"description": "Сбрасывает пароль пользователя по ссылке с uuid, exp и sig.",
+				"parameters": [
+					{
+						"name": "uuid",
+						"in": "query",
+						"required": true,
+						"schema": { "type": "string" },
+						"description": "UUID пользователя."
+					},
+					{
+						"name": "exp",
+						"in": "query",
+						"required": true,
+						"schema": { "type": "integer", "format": "int64" },
+						"description": "Время истечения ссылки в UNIX timestamp."
+					},
+					{
+						"name": "sig",
+						"in": "query",
+						"required": true,
+						"schema": { "type": "string" },
+						"description": "Цифровая подпись ссылки."
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"properties": {
+									"password": {
+										"type": "string",
+										"format": "password"
+									},
+									"turnstile_token": { "type": "string" }
+								},
+								"required": ["password", "turnstile_token"]
+							},
+							"example": {
+								"password": "password123",
+								"turnstile_token": "1x00000000000000000000AA"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Пароль успешно сброшен.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "object",
+									"properties": {
+										"message": { "type": "string" }
+									}
+								},
+								"example": {
+									"message": "Пароль успешно сброшен."
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Ошибка валидации или неверные данные.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "Обьект не найден.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"429": {
+						"description": "Слишком много запросов.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Внутренняя ошибка сервера.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/users": {
+			"get": {
+				"tags": ["Users"],
+				"summary": "Получение списка пользователей",
+				"description": "Возвращает список пользователей с поддержкой пагинации. Для обычных пользователей возвращает только подчинённых пользователей.",
+				"security": [
+					{
+						"cookieAuth": []
+					}
+				],
+				"parameters": [
+					{
+						"name": "page",
+						"in": "query",
+						"schema": { "type": "integer", "default": 1 },
+						"description": "Номер страницы."
+					},
+					{
+						"name": "limit",
+						"in": "query",
+						"schema": { "type": "integer", "default": 5 },
+						"description": "Количество элементов на странице."
+					},
+					{
+						"name": "search",
+						"in": "query",
+						"schema": { "type": "string" },
+						"description": "Строка поиска по email или имени организации."
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Список пользователей с пагинацией.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/UsersWPResponse"
+								},
+								"example": {
+									"items": [
+										{
+											"user_contact": {
+												"id": 1,
+												"created_at": "2026-02-05T10:00:00Z",
+												"updated_at": "2026-02-05T12:00:00Z",
+												"user_uuid": "123e4567-e89b-12d3-a456-426614174000",
+												"name_organization": "ООО Ромашка",
+												"locality": "Москва",
+												"phone": "+79001234567",
+												"language": "ru"
+											},
+											"parent_uuid": null,
+											"email": "admin@example.com",
+											"parent_email": null,
+											"role": {
+												"code": "DEALER",
+												"name": "dealer"
+											},
+											"access_treker_create": true,
+											"access_treker_edit": true,
+											"access_treker_delete": true,
+											"access_group_manage": true,
+											"access_configuration_read": true,
+											"access_configuration_apply": true,
+											"access_configuration_history": true,
+											"access_command_send": true,
+											"access_log_read": true
+										}
+									],
+									"page": 1,
+									"limit": 5,
+									"total": 12,
+									"total_pages": 3
+								}
+							}
+						}
+					},
+					"403": {
+						"description": "Недостаточно прав для просмотра списка пользователей.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"400": {
+						"description": "Ошибка валидации или неверные данные.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"401": {
+						"description": "Неавторизован, ошибка пароля или токена.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"429": {
+						"description": "Слишком много запросов.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Внутренняя ошибка сервера.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/users/create": {
+			"post": {
+				"tags": ["Users"],
+				"summary": "Создание нового пользователя",
+				"description": "Создание нового пользователя.",
+				"security": [
+					{
+						"cookieAuth": []
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/UserCreatePayload"
+							}
+						}
+					}
+				},
+				"responses": {
+					"201": {
+						"description": "Пользователь успешно создан.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "string"
+								},
+								"example": "Пользователь успешно создан."
+							}
+						}
+					},
+					"400": {
+						"description": "Ошибка валидации или неверные данные.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"401": {
+						"description": "Неавторизован, ошибка пароля или токена.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"403": {
+						"description": "Недостаточно прав для создания пользователя.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"429": {
+						"description": "Слишком много запросов.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Внутренняя ошибка сервера.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/users/delete": {
+			"post": {
+				"tags": ["Users"],
+				"summary": "Массовое удаление пользователей",
+				"description": "Позволяет удалить сразу несколько пользователей по их UUID. Если роль администратора не является SuperAdmin/Support, проверяется принадлежность пользователя текущему администратору.",
+				"security": [
+					{
+						"cookieAuth": []
+					}
+				],
+				"requestBody": {
+					"description": "Список UUID пользователей для удаления",
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/DeleteUsersPayload"
+							},
+							"example": {
+								"uuids": [
+									"123e4567-e89b-12d3-a456-426614174000",
+									"987e6543-e21b-12d3-a456-426614174999"
+								]
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Пользователи успешно удалены.",
+						"content": {
+							"application/json": {
+								"example": "Пользователи успешно удалены."
+							}
+						}
+					},
+					"403": {
+						"description": "Недостаточно прав у пользователя.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"400": {
+						"description": "Ошибка валидации или неверные данные.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"401": {
+						"description": "Неавторизован, ошибка пароля или токена.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"429": {
+						"description": "Слишком много запросов.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Внутренняя ошибка сервера.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/users/me": {
+			"get": {
+				"tags": ["Users"],
+				"summary": "Получение текущего пользователя",
+				"description": "Возвращает данные текущего авторизованного пользователя на основе токена аутентификации.",
+				"security": [
+					{
+						"cookieAuth": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Данные пользователя успешно получены.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/UserAuth"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Неавторизован, ошибка пароля или токена.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"403": {
+						"description": "Недостаточно прав у пользователя.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"429": {
+						"description": "Слишком много запросов.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Внутренняя ошибка сервера.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					}
+				}
+			},
+			"patch": {
+				"tags": ["Users"],
+				"summary": "Обновление профиля текущего пользователя",
+				"description": "Обновляет данные текущего авторизованного пользователя. Можно изменить email, пароль, телефон и дополнительные параметры профиля.",
+				"security": [
+					{
+						"cookieAuth": []
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/UpdateUserMePayload"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Профиль успешно обновлен.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "string",
+									"example": "Профиль успешно обновлен."
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Ошибка валидации или неверные данные.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"401": {
+						"description": "Неавторизован, ошибка пароля или токена.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"429": {
+						"description": "Слишком много запросов.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Внутренняя ошибка сервера.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/users/me/configuration-priority": {
+			"patch": {
+				"tags": ["Users"],
+				"summary": "Настройка приоритета конфигурации NeoSync",
+				"description": "Включает или отключает принудительный приоритет конфигурации NeoSync при синхронизации. При включении время изменения конфигурации игнорируется, сравнение выполняется по хешу.",
+				"security": [{ "cookieAuth": [] }],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/UpdateConfigurationPriorityPayload"
+							}
+						}
+					}
+				},
+				"responses": {
+					"204": {
+						"description": "Настройка успешно сохранена. Тело ответа отсутствует."
+					},
+					"400": {
+						"description": "Некорректное или неполное тело запроса.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Неавторизован.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					},
+					"404": {
+						"description": "Пользователь не найден.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Внутренняя ошибка сервера.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/users/owner": {
+			"get": {
+				"tags": ["Users"],
+				"summary": "Получение списка пользователей владельца",
+				"description": "Возвращает список пользователей, для трансфера в аккаунты. Если роль не является основной, возвращается пустой ответ.",
+				"security": [
+					{
+						"cookieAuth": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Список пользователей успешно получен.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "array",
+									"items": {
+										"$ref": "#/components/schemas/UserToOwner"
+									}
+								}
+							}
+						}
+					},
+					"204": {
+						"description": "Роль пользователя не является основной. Контент отсутствует."
+					},
+					"401": {
+						"description": "Неавторизован, ошибка пароля или токена.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"429": {
+						"description": "Слишком много запросов.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Внутренняя ошибка сервера.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/users/{uuid}": {
+			"get": {
+				"tags": ["Users"],
+				"summary": "Получение пользователя по UUID",
+				"description": "Возвращает данные пользователя по UUID. Доступно только SuperAdmin, Support и AdminL2. AdminL2 может получать только своих пользователей.",
+				"security": [
+					{
+						"cookieAuth": []
+					}
+				],
+				"parameters": [
+					{
+						"name": "uuid",
+						"in": "path",
+						"required": true,
+						"schema": {
+							"type": "string",
+							"format": "uuid"
+						},
+						"description": "UUID пользователя."
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Данные пользователя успешно получены.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/UserAuth"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Неавторизован, ошибка пароля или токена.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"403": {
+						"description": "Недостаточно прав у пользователя.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"404": {
+						"description": "Обьект не найден.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"429": {
+						"description": "Слишком много запросов.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Внутренняя ошибка сервера.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					}
+				}
+			},
+			"patch": {
+				"tags": ["Users"],
+				"summary": "Обновление пользователя по UUID",
+				"description": "Обновляет данные пользователя. AdminL2 может изменять только своих пользователей. Поддерживает обновление email, пароля, телефона, профиля и прав доступа.",
+				"security": [
+					{
+						"cookieAuth": []
+					}
+				],
+				"parameters": [
+					{
+						"name": "uuid",
+						"in": "path",
+						"required": true,
+						"schema": {
+							"type": "string",
+							"format": "uuid"
+						},
+						"description": "UUID пользователя."
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/UpdateUserOnesPayload"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Данные пользователя успешно обновлены.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "string",
+									"example": "Данные пользователя обновлены."
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Ошибка валидации или неверные данные.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"401": {
+						"description": "Неавторизован, ошибка пароля или токена.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"403": {
+						"description": "Недостаточно прав у пользователя.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"404": {
+						"description": "Обьект не найден.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"429": {
+						"description": "Слишком много запросов.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Внутренняя ошибка сервера.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					}
+				}
+			},
+			"delete": {
+				"tags": ["Users"],
+				"summary": "Удаление пользователя по UUID",
+				"description": "Удаляет пользователя из системы. Пользователь должен быть создан текущим администратором или иметь достаточные права (SuperAdmin/Support/AdminL2).",
+				"security": [
+					{
+						"cookieAuth": []
+					}
+				],
+				"parameters": [
+					{
+						"name": "uuid",
+						"in": "path",
+						"required": true,
+						"description": "UUID пользователя.",
+						"schema": {
+							"type": "string",
+							"format": "uuid",
+							"example": "123e4567-e89b-12d3-a456-426614174000"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Пользователь успешно удален.",
+						"content": {
+							"application/json": {
+								"example": "Пользователь успешно удален."
+							}
+						}
+					},
+					"401": {
+						"description": "Неавторизован, ошибка пароля или токена.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"403": {
+						"description": "Недостаточно прав у пользователя.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"404": {
+						"description": "Обьект не найден.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"429": {
+						"description": "Слишком много запросов.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Внутренняя ошибка сервера.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/users/{uuid}/send/email": {
+			"post": {
+				"tags": ["Users"],
+				"summary": "Отправка пользователю данных для входа",
+				"description": "Отправляет пользователю письмо с данными для входа. Доступно администраторам. AdminL2 может отправлять письма только своим пользователям.",
+				"security": [
+					{
+						"cookieAuth": []
+					}
+				],
+				"parameters": [
+					{
+						"name": "uuid",
+						"in": "path",
+						"required": true,
+						"schema": {
+							"type": "string",
+							"format": "uuid"
+						},
+						"description": "UUID пользователя."
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"properties": {
+									"turnstile_token": {
+										"type": "string",
+										"description": "Yandex SmartCaptcha токен."
+									}
+								},
+								"required": ["turnstile_token"]
+							},
+							"example": {
+								"turnstile_token": "1x00000000000000000000AA"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Данные для входа успешно отправлены пользователю.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "string",
+									"example": "Данные для входа отправлены пользователю."
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Ошибка валидации или неверные данные.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"401": {
+						"description": "Неавторизован, ошибка пароля или токена.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"403": {
+						"description": "Недостаточно прав у пользователя.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"404": {
+						"description": "Обьект не найден.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"429": {
+						"description": "Слишком много запросов.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Внутренняя ошибка сервера.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/devices": {
+			"get": {
+				"tags": ["Devices"],
+				"summary": "Получение списка устройств",
+				"description": "Получение списка устройств пользователя с поддержкой пагинации и поиска по IMEI. Набор возвращаемых устройств зависит от роли пользователя.",
+				"security": [
+					{
+						"cookieAuth": []
+					}
+				],
+				"parameters": [
+					{
+						"name": "page",
+						"in": "query",
+						"required": false,
+						"description": "Номер страницы.",
+						"schema": {
+							"type": "integer",
+							"example": 1,
+							"minimum": 1
+						}
+					},
+					{
+						"name": "limit",
+						"in": "query",
+						"required": false,
+						"description": "Максимальное количество элементов на странице.",
+						"schema": {
+							"type": "integer",
+							"example": 10,
+							"minimum": 1,
+							"maximum": 100
+						}
+					},
+					{
+						"name": "search",
+						"in": "query",
+						"required": false,
+						"description": "Поиск по IMEI устройства.",
+						"schema": {
+							"type": "string",
+							"example": "123456"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Список устройств с пагинацией.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/DevicesWPResponse"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Неавторизован, ошибка пароля или токена.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"403": {
+						"description": "Недостаточно прав у пользователя.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"429": {
+						"description": "Слишком много запросов.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Внутренняя ошибка сервера.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					}
+				}
+			},
+			"post": {
+				"tags": ["Devices"],
+				"summary": "Создание устройства",
+				"description": "Создание нового устройства или привязка существующего устройства к пользователю по IMEI.",
+				"security": [
+					{
+						"cookieAuth": []
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/CreateDevicePayload"
+							}
+						}
+					}
+				},
+				"responses": {
+					"201": {
+						"description": "Устройство успешно создано. Активация произойдет при подключении к серверу.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "string",
+									"example": "Устройство активируется при подключении к серверу."
+								}
+							}
+						}
+					},
+					"200": {
+						"description": "Устройство успешно привязано к пользователю.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "string",
+									"example": "Трекер успешно добавлен."
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Ошибка валидации или неверные данные.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"401": {
+						"description": "Неавторизован, ошибка пароля или токена.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"403": {
+						"description": "Недостаточно прав у пользователя.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"404": {
+						"description": "Обьект не найден.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"429": {
+						"description": "Слишком много попыток добавления устройства. Доступ временно заблокирован.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"500": {
+						"description": "Внутренняя ошибка сервера.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/devices/al": {
+			"get": {
+				"tags": ["Devices"],
+				"summary": "Получение всех устройств",
+				"description": "Получение полного списка устройств пользователя без пагинации. Доступно в зависимости от роли пользователя.",
+				"security": [
+					{
+						"cookieAuth": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Полный список устройств.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "array",
+									"items": {
+										"$ref": "#/components/schemas/DeviceDeviceConfSync"
+									}
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Неавторизован, ошибка пароля или токена.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"403": {
+						"description": "Недостаточно прав у пользователя.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"429": {
+						"description": "Слишком много запросов.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Внутренняя ошибка сервера.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/devices/state": {
+			"get": {
+				"tags": ["Devices"],
+				"summary": "Получение состояния IMEI устройств",
+				"description": "Возвращает список IMEI устройств пользователя с их статусом и информацией об активации. Доступ зависит от роли пользователя.",
+				"security": [
+					{
+						"cookieAuth": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Список IMEI устройств с их состоянием.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "array",
+									"items": {
+										"$ref": "#/components/schemas/DeviceImeiState"
+									}
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Неавторизован, ошибка пароля или токена.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"403": {
+						"description": "Недостаточно прав у пользователя.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"429": {
+						"description": "Слишком много запросов.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Внутренняя ошибка сервера.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/devices/delete": {
+			"post": {
+				"tags": ["Devices"],
+				"summary": "Массовое удаление устройств",
+				"description": "Массовое удаление или отвязка устройств по списку IMEI. Для пользователей с главной ролью устройства удаляются полностью. Для остальных — устройства отвязываются от пользователя.",
+				"security": [
+					{
+						"cookieAuth": []
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/DeleteDevicesPayload"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Устройства успешно удалены или отвязаны.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "string",
+									"example": "Устройства успешно удалены."
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Ошибка валидации или неверные данные.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"401": {
+						"description": "Неавторизован, ошибка пароля или токена.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"403": {
+						"description": "Недостаточно прав у пользователя.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"404": {
+						"description": "Обьект не найден.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"429": {
+						"description": "Слишком много запросов.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Внутренняя ошибка сервера.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/devices/{imei}": {
+			"get": {
+				"tags": ["Devices"],
+				"summary": "Получение устройства по IMEI",
+				"description": "Получение данных устройства и его конфигурации по IMEI. Доступно владельцу устройства или пользователю с главной ролью.",
+				"security": [
+					{
+						"cookieAuth": []
+					}
+				],
+				"parameters": [
+					{
+						"name": "imei",
+						"in": "path",
+						"required": true,
+						"description": "IMEI устройства (15 цифр).",
+						"schema": {
+							"type": "string",
+							"example": "123456789012345"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Данные устройства и его конфигурации.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/DeviceDeviceConfSync"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Ошибка валидации или неверные данные.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"401": {
+						"description": "Неавторизован, ошибка пароля или токена.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"403": {
+						"description": "Недостаточно прав у пользователя.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"404": {
+						"description": "Обьект не найден.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"429": {
+						"description": "Слишком много запросов.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Внутренняя ошибка сервера.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					}
+				}
+			},
+			"patch": {
+				"tags": ["Devices"],
+				"summary": "Обновление данных устройства по IMEI",
+				"description": "Позволяет обновить модель устройства, пароль и флаг запроса конфигурации. Доступ ограничен правами редактирования устройств.",
+				"security": [
+					{
+						"cookieAuth": []
+					}
+				],
+				"parameters": [
+					{
+						"name": "imei",
+						"in": "path",
+						"required": true,
+						"description": "IMEI устройства (15 цифр).",
+						"schema": {
+							"type": "string",
+							"example": "123456789012345"
+						}
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/EditDevicePayload"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Данные устройства успешно обновлены.",
+						"content": {
+							"application/json": {
+								"example": "Данные устройства обновлены."
+							}
+						}
+					},
+					"400": {
+						"description": "Ошибка валидации или неверные данные.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"401": {
+						"description": "Неавторизован, ошибка пароля или токена.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"403": {
+						"description": "Недостаточно прав у пользователя.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"404": {
+						"description": "Обьект не найден.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"429": {
+						"description": "Слишком много запросов.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Внутренняя ошибка сервера.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					}
+				}
+			},
+			"delete": {
+				"tags": ["Devices"],
+				"summary": "Удаление устройства",
+				"description": "Удаление устройства по IMEI. Для обычного пользователя — отвязка устройства от аккаунта. Для пользователя с главной ролью — полное удаление устройства из системы.",
+				"security": [
+					{
+						"cookieAuth": []
+					}
+				],
+				"parameters": [
+					{
+						"name": "imei",
+						"in": "path",
+						"required": true,
+						"description": "IMEI устройства.",
+						"schema": {
+							"type": "string",
+							"example": "123456789012345"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Устройство успешно удалено или отвязано.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "string",
+									"example": "Устройство успешно удалено."
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Неавторизован, ошибка пароля или токена.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"403": {
+						"description": "Недостаточно прав у пользователя.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"404": {
+						"description": "Обьект не найден.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"429": {
+						"description": "Слишком много запросов.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Внутренняя ошибка сервера.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/devices/{imei}/logs": {
+			"get": {
+				"tags": ["Devices"],
+				"summary": "Получение логов устройства",
+				"description": "Получение административных логов устройства по IMEI. Доступно владельцу устройства или пользователю с главной ролью при наличии прав на чтение логов.",
+				"security": [
+					{
+						"cookieAuth": []
+					}
+				],
+				"parameters": [
+					{
+						"name": "imei",
+						"in": "path",
+						"required": true,
+						"description": "IMEI устройства (15 цифр).",
+						"schema": {
+							"type": "string",
+							"example": "123456789012345"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Список логов устройства.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "array",
+									"items": {
+										"$ref": "#/components/schemas/AdmLogItem"
+									}
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Ошибка валидации или неверные данные.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"401": {
+						"description": "Неавторизован, ошибка пароля или токена.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"403": {
+						"description": "Недостаточно прав у пользователя.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"404": {
+						"description": "Обьект не найден.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"429": {
+						"description": "Слишком много запросов.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Внутренняя ошибка сервера.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/devices/{imei}/status": {
+			"get": {
+				"tags": ["Devices"],
+				"summary": "Получение статуса устройства по IMEI",
+				"description": "Возвращает текущий статус устройства (активно/неактивно) по IMEI.",
+				"security": [
+					{
+						"cookieAuth": []
+					}
+				],
+				"parameters": [
+					{
+						"name": "imei",
+						"in": "path",
+						"required": true,
+						"description": "IMEI устройства (15 цифр).",
+						"schema": {
+							"type": "string",
+							"example": "123456789012345"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Статус устройства.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/DeviceStatus"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Ошибка валидации или неверные данные.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"401": {
+						"description": "Неавторизован, ошибка пароля или токена.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"404": {
+						"description": "Обьект не найден.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"429": {
+						"description": "Слишком много запросов.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Внутренняя ошибка сервера.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/devices/transfer": {
+			"patch": {
+				"tags": ["Devices"],
+				"summary": "Трансфер устройств в другой аккаунт",
+				"description": "Позволяет перенести устройства на аккаунт другого пользователя (дилера). Если UUID не указан, устройства отвязываются от текущего пользователя.",
+				"security": [
+					{
+						"cookieAuth": []
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/TransferAccountPayload"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Устройства успешно перенесены на аккаунт.",
+						"content": {
+							"application/json": {
+								"example": "Устройства перенесены на аккаунт."
+							}
+						}
+					},
+					"400": {
+						"description": "Ошибка валидации или неверные данные.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"401": {
+						"description": "Неавторизован, ошибка пароля или токена.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"403": {
+						"description": "Недостаточно прав у пользователя.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"404": {
+						"description": "Обьект не найден.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"429": {
+						"description": "Слишком много запросов.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Внутренняя ошибка сервера.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/groups": {
+			"get": {
+				"tags": ["Groups"],
+				"summary": "Получение списка групп с пагинацией",
+				"description": "Возвращает список групп текущего пользователя с поддержкой пагинации и поиска по названию/описанию.",
+				"security": [
+					{
+						"cookieAuth": []
+					}
+				],
+				"parameters": [
+					{
+						"name": "page",
+						"in": "query",
+						"required": false,
+						"schema": {
+							"type": "integer",
+							"default": 1
+						},
+						"description": "Номер страницы."
+					},
+					{
+						"name": "limit",
+						"in": "query",
+						"required": false,
+						"schema": {
+							"type": "integer",
+							"default": 10
+						},
+						"description": "Количество элементов на странице."
+					},
+					{
+						"name": "search",
+						"in": "query",
+						"required": false,
+						"schema": {
+							"type": "string"
+						},
+						"description": "Поиск по имени или описанию группы."
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Список групп с пагинацией.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/GroupsWPResponse"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Неавторизован, ошибка пароля или токена.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"429": {
+						"description": "Слишком много запросов.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Внутренняя ошибка сервера.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					}
+				}
+			},
+			"post": {
+				"tags": ["Groups"],
+				"summary": "Создание группы",
+				"description": "Создает новую группу устройств. Требуется право управления группами.",
+				"security": [
+					{
+						"cookieAuth": []
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/CreateGroupPayload"
+							}
+						}
+					}
+				},
+				"responses": {
+					"201": {
+						"description": "Группа успешно создана.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "string",
+									"example": "Группа успешно создана."
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Ошибка валидации или неверные данные.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"401": {
+						"description": "Неавторизован, ошибка пароля или токена.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"403": {
+						"description": "Недостаточно прав у пользователя.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"429": {
+						"description": "Слишком много запросов.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Внутренняя ошибка сервера.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/groups/delete": {
+			"tags": ["Groups"],
+			"summary": "Массовое удаление групп",
+			"description": "Удаляет несколько групп по их ID. Требуется право управления группами. Пользователь может удалить только свои группы.",
+			"security": [
+				{
+					"cookieAuth": []
+				}
+			],
+			"requestBody": {
+				"required": true,
+				"content": {
+					"application/json": {
+						"schema": {
+							"type": "object",
+							"properties": {
+								"ids": {
+									"type": "array",
+									"items": {
+										"type": "integer",
+										"example": 12
+									},
+									"description": "Список ID групп для удаления."
+								}
+							},
+							"required": ["ids"]
+						}
+					}
+				}
+			},
+			"responses": {
+				"200": {
+					"description": "Группы успешно удалены.",
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "string",
+								"example": "Группы успешно удалены."
+							}
+						}
+					}
+				},
+				"400": {
+					"description": "Ошибка валидации или неверные данные.",
+					"content": {
+						"application/json": {
+							"$ref": "#/components/schemas/ErrorResponse"
+						}
+					}
+				},
+				"401": {
+					"description": "Неавторизован, ошибка пароля или токена.",
+					"content": {
+						"application/json": {
+							"$ref": "#/components/schemas/ErrorResponse"
+						}
+					}
+				},
+				"403": {
+					"description": "Недостаточно прав у пользователя.",
+					"content": {
+						"application/json": {
+							"$ref": "#/components/schemas/ErrorResponse"
+						}
+					}
+				},
+				"404": {
+					"description": "Обьект не найден.",
+					"content": {
+						"application/json": {
+							"$ref": "#/components/schemas/ErrorResponse"
+						}
+					}
+				},
+				"429": {
+					"description": "Слишком много запросов.",
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					}
+				},
+				"500": {
+					"description": "Внутренняя ошибка сервера.",
+					"content": {
+						"application/json": {
+							"$ref": "#/components/schemas/ErrorResponse"
+						}
+					}
+				}
+			}
+		},
+		"/groups/fields/name": {
+			"get": {
+				"tags": ["Groups"],
+				"summary": "Получение списка (только названия) групп пользователя",
+				"description": "Возвращает массив групп текущего пользователя с полями ID и Name.",
+				"security": [
+					{
+						"cookieAuth": []
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Список групп успешно получен.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "array",
+									"items": {
+										"$ref": "#/components/schemas/GroupsName"
+									},
+									"example": [
+										{
+											"id": 1,
+											"name": "Мои трекеры"
+										},
+										{
+											"id": 2,
+											"name": "Служебные устройства"
+										}
+									]
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Неавторизован, ошибка пароля или токена.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"429": {
+						"description": "Слишком много запросов.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Внутренняя ошибка сервера.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/groups/{id}": {
+			"get": {
+				"tags": ["Groups"],
+				"summary": "Получение группы с объектами",
+				"description": "Возвращает группу с массивами устройств, которые входят в группу, и устройств, которые не входят в группу.",
+				"security": [
+					{
+						"cookieAuth": []
+					}
+				],
+				"parameters": [
+					{
+						"name": "id",
+						"in": "path",
+						"required": true,
+						"schema": {
+							"type": "integer"
+						},
+						"description": "ID группы"
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Группа с устройствами успешно получена",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/GroupByObjects"
+								}
+							}
+						}
+					},
+					"204": {
+						"description": "Группа пуста или не найдена.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "null"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Ошибка валидации или неверные данные.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"401": {
+						"description": "Неавторизован, ошибка пароля или токена.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"404": {
+						"description": "Обьект не найден",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"429": {
+						"description": "Слишком много запросов.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Внутренняя ошибка сервера",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					}
+				}
+			},
+			"delete": {
+				"tags": ["Groups"],
+				"summary": "Удаление группы",
+				"description": "Удаляет группу по ID. Требуется право управления группами. Пользователь может удалить только свои группы.",
+				"security": [
+					{
+						"cookieAuth": []
+					}
+				],
+				"parameters": [
+					{
+						"name": "id",
+						"in": "path",
+						"required": true,
+						"schema": {
+							"type": "integer",
+							"example": 12
+						},
+						"description": "ID группы."
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Группа успешно удалена.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "string",
+									"example": "Группа успешно удалена."
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Ошибка валидации или неверные данные.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"401": {
+						"description": "Неавторизован, ошибка пароля или токена.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"403": {
+						"description": "Недостаточно прав у пользователя.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"404": {
+						"description": "Обьект не найден.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"429": {
+						"description": "Слишком много запросов.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Внутренняя ошибка сервера.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/groups/{id}/objects": {
+			"get": {
+				"tags": ["Groups"],
+				"summary": "Получение устройств в группе",
+				"description": "Возвращает два массива: устройств, которые входят в группу, и устройств, которые не входят в группу.",
+				"security": [
+					{
+						"cookieAuth": []
+					}
+				],
+				"parameters": [
+					{
+						"name": "id",
+						"in": "path",
+						"required": true,
+						"schema": {
+							"type": "integer"
+						},
+						"description": "ID группы."
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Устройства успешно получены.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/DevicesGroupResponse"
+								}
+							}
+						}
+					},
+					"204": {
+						"description": "Группа пуста или устройств нет.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "null"
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Ошибка валидации или неверные данные.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"401": {
+						"description": "Неавторизован, ошибка пароля или токена.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"404": {
+						"description": "Обьект не найден.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"429": {
+						"description": "Слишком много запросов.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Внутренняя ошибка сервера.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					}
+				}
+			},
+			"put": {
+				"tags": ["Groups"],
+				"summary": "Добавление устройств в группу",
+				"description": "Добавляет список устройств в указанную группу. Требуется право управления группами.",
+				"security": [
+					{
+						"cookieAuth": []
+					}
+				],
+				"parameters": [
+					{
+						"name": "id",
+						"in": "path",
+						"required": true,
+						"schema": {
+							"type": "integer",
+							"example": 12
+						},
+						"description": "ID группы."
+					}
+				],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"$ref": "#/components/schemas/ActionObjectsGroupPayload"
+							}
+						}
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Устройства успешно добавлены в группу.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "string",
+									"example": "Устройства успешно добавлены в группу."
+								}
+							}
+						}
+					},
+					"400": {
+						"description": "Ошибка валидации или неверные данные.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"401": {
+						"description": "Неавторизован, ошибка пароля или токена.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"403": {
+						"description": "Недостаточно прав у пользователя.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"404": {
+						"description": "Обьект не найден.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"429": {
+						"description": "Слишком много запросов.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Внутренняя ошибка сервера.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/devices/{imei}/sync": {
+			"get": {
+				"tags": ["Sync"],
+				"summary": "Получите синхронизацию устройства по IMEI",
+				"description": "Получение данных синхронизации устройства по IMEI.",
+				"security": [
+					{
+						"cookieAuth": []
+					}
+				],
+				"parameters": [
+					{
+						"name": "imei",
+						"in": "path",
+						"required": true,
+						"description": "IMEI устройства.",
+						"schema": {
+							"type": "string",
+							"example": "123456789012345"
+						}
+					}
+				],
+				"responses": {
+					"200": {
+						"description": "Данные синхронизации устройства.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/Sync"
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Неавторизован, ошибка пароля или токена.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"403": {
+						"description": "Недостаточно прав у пользователя.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"404": {
+						"description": "Обьект не найден.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"429": {
+						"description": "Слишком много запросов.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Внутренняя ошибка сервера.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/firmwares/models": {
+			"get": {
+				"tags": ["Firmwares"],
+				"summary": "Получение списка моделей терминалов",
+				"description": "Возвращает список моделей устройств, доступных для обновления прошивки. Кэширование ответа 12 часов.",
+				"responses": {
+					"200": {
+						"description": "Список моделей устройств.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "array",
+									"items": {
+										"type": "string",
+										"example": "ADM007BLE"
+									}
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Неавторизован, ошибка пароля или токена.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"429": {
+						"description": "Слишком много запросов.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					},
+					"500": {
+						"description": "Внутренняя ошибка сервера.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/firmwares/sources": {
+			"get": {
+				"tags": ["Firmwares"],
+				"summary": "Список доступных прошивок",
+				"security": [{ "cookieAuth": [] }],
+				"responses": {
+					"200": {
+						"description": "Список прошивок по моделям устройств.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "array",
+									"items": { "type": "object" }
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Неавторизован.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/firmwares/devices/{imei}/firmware": {
+			"post": {
+				"tags": ["Firmwares"],
+				"summary": "Инициация обновления прошивки устройства",
+				"description": "Запускает процесс обновления прошивки устройства по IMEI. Только для активированных устройств, проверяется принадлежность текущему пользователю.",
+				"security": [
+					{
+						"cookieAuth": []
+					}
+				],
+				"parameters": [
+					{
+						"name": "imei",
+						"in": "path",
+						"required": true,
+						"description": "IMEI устройства (15 цифр).",
+						"schema": {
+							"type": "string",
+							"example": "123456789012345"
+						}
+					}
+				],
+				"responses": {
+					"202": {
+						"description": "Обновление прошивки инициировано, устройство находится в очереди.",
+						"content": {
+							"application/json": {
+								"example": "Прошивка загружена, ожидайте завершения."
+							}
+						}
+					},
+					"401": {
+						"description": "Неавторизован, ошибка пароля или токена.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"404": {
+						"description": "Обьект не найден.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"403": {
+						"description": "Недостаточно прав у пользователя.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"422": {
+						"description": "Устройство не активировано, обновление невозможно.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"429": {
+						"description": "Слишком много запросов.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					},
+					"502": {
+						"description": "Ошибка взаимодействия с RabbitMQ при отправке команды.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					},
+					"500": {
+						"description": "Внутренняя ошибка сервера.",
+						"content": {
+							"application/json": {
+								"$ref": "#/components/schemas/ErrorResponse"
+							}
+						}
+					}
+				}
+			}
+		},
+		"/auth/signout": {
+			"post": {
+				"tags": ["Auth"],
+				"summary": "Выход из аккаунта",
+				"security": [{ "cookieAuth": [] }],
+				"responses": {
+					"204": { "description": "Сессия завершена." },
+					"401": {
+						"description": "Неавторизован.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/users/tree": {
+			"get": {
+				"tags": ["Users"],
+				"summary": "Дерево пользователей",
+				"security": [{ "cookieAuth": [] }],
+				"responses": {
+					"200": {
+						"description": "Дерево пользователей.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "array",
+									"items": {
+										"$ref": "#/components/schemas/User"
+									}
+								}
+							}
+						}
+					},
+					"401": {
+						"description": "Неавторизован.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/users/full-list": {
+			"get": {
+				"tags": ["Users"],
+				"summary": "Полный список пользователей",
+				"security": [{ "cookieAuth": [] }],
+				"responses": {
+					"200": {
+						"description": "Список пользователей.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/UsersWPResponse"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/users/owners": {
+			"get": {
+				"tags": ["Users"],
+				"summary": "Пользователи владельца",
+				"security": [{ "cookieAuth": [] }],
+				"responses": {
+					"200": {
+						"description": "Список пользователей владельца.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "array",
+									"items": {
+										"$ref": "#/components/schemas/UserToOwner"
+									}
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/users/me/accesses": {
+			"get": {
+				"tags": ["Users"],
+				"summary": "Права текущего пользователя",
+				"security": [{ "cookieAuth": [] }],
+				"responses": {
+					"200": {
+						"description": "Права доступа.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/AccessFields"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/users/me/cvcg": {
+			"patch": {
+				"tags": ["Users"],
+				"summary": "Настройка просмотра дочерних групп",
+				"security": [{ "cookieAuth": [] }],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": {
+							"schema": {
+								"type": "object",
+								"required": ["can_view_child_groups"],
+								"properties": {
+									"can_view_child_groups": {
+										"type": "boolean"
+									}
+								}
+							}
+						}
+					}
+				},
+				"responses": {
+					"204": { "description": "Настройка сохранена." },
+					"400": {
+						"description": "Ошибка валидации.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/users/me/login-with-role": {
+			"get": {
+				"tags": ["Users"],
+				"summary": "Получение входа с кодом роли",
+				"security": [{ "cookieAuth": [] }],
+				"responses": {
+					"200": {
+						"description": "Данные входа.",
+						"content": {
+							"application/json": {
+								"schema": { "type": "object" }
+							}
+						}
+					}
+				}
+			}
+		},
+		"/analytics/events": {
+			"post": {
+				"tags": ["Analytics"],
+				"summary": "Отправка событий аналитики",
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": { "schema": { "type": "object" } }
+					}
+				},
+				"responses": {
+					"204": { "description": "События приняты." },
+					"400": {
+						"description": "Некорректные данные.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"$ref": "#/components/schemas/ErrorResponse"
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/analytics/widgets": {
+			"get": {
+				"tags": ["Analytics"],
+				"summary": "Виджеты аналитики",
+				"security": [{ "cookieAuth": [] }],
+				"responses": {
+					"200": {
+						"description": "Список виджетов.",
+						"content": {
+							"application/json": {
+								"schema": {
+									"type": "array",
+									"items": { "type": "object" }
+								}
+							}
+						}
+					}
+				}
+			}
+		},
+		"/analytics/query": {
+			"post": {
+				"tags": ["Analytics"],
+				"summary": "Запрос аналитики",
+				"security": [{ "cookieAuth": [] }],
+				"requestBody": {
+					"required": true,
+					"content": {
+						"application/json": { "schema": { "type": "object" } }
+					}
+				},
+				"responses": {
+					"200": {
+						"description": "Результат запроса.",
+						"content": {
+							"application/json": {
+								"schema": { "type": "object" }
+							}
+						}
+					}
+				}
+			}
+		}
+	},
+	"components": {
+		"securitySchemes": {
+			"cookieAuth": {
+				"type": "http",
+				"in": "cookie",
+				"name": "access_token"
+			}
+		},
+		"schemas": {
+			"SigninPayload": {
+				"type": "object",
+				"properties": {
+					"login": { "type": "string", "format": "email" },
+					"password": {
+						"type": "string",
+						"minLength": 6,
+						"maxLength": 16
+					},
+					"remember_me": { "type": "boolean" },
+					"turnstile_token": { "type": "string" }
+				},
+				"required": ["login", "password", "turnstile_token"]
+			},
+			"UserCreatePayload": {
+				"type": "object",
+				"required": [
+					"email",
+					"language",
+					"password",
+					"role_code",
+					"accesses"
+				],
+				"properties": {
+					"email": { "type": "string", "format": "email" },
+					"language": { "type": "string", "example": "en" },
+					"locality": { "type": "string" },
+					"name_organization": { "type": "string", "maxLength": 100 },
+					"phone": { "type": "string" },
+					"password": {
+						"type": "string",
+						"minLength": 6,
+						"maxLength": 16
+					},
+					"role_code": { "type": "string" },
+					"accesses": {
+						"$ref": "#/components/schemas/AccessFields"
+					}
+				}
+			},
+			"UserAuth": {
+				"type": "object",
+				"properties": {
+					"user_contact": {
+						"$ref": "#/components/schemas/UserContact"
+					},
+					"parent_uuid": {
+						"type": "string",
+						"nullable": true,
+						"example": "b2f9a8a4-7a3c-4a11-8c44-123456789abc"
+					},
+					"email": {
+						"type": "string",
+						"format": "email",
+						"example": "user@example.com"
+					},
+					"parent_email": {
+						"type": "string",
+						"format": "email",
+						"nullable": true,
+						"example": "parent@example.com"
+					},
+					"password": {
+						"type": "string",
+						"description": "Хэш пароля пользователя."
+					},
+					"refresh_token": {
+						"type": "string",
+						"nullable": true,
+						"description": "Refresh токен пользователя."
+					},
+					"role": {
+						"$ref": "#/components/schemas/Role"
+					},
+					"accesses": {
+						"$ref": "#/components/schemas/AccessFields"
+					},
+					"force_neosync_configuration_priority": {
+						"type": "boolean",
+						"description": "Принудительный приоритет конфигурации NeoSync при синхронизации."
+					}
+				},
+				"required": ["user_contact", "email", "role"]
+			},
+			"UpdateConfigurationPriorityPayload": {
+				"type": "object",
+				"required": ["force_neosync_configuration_priority"],
+				"properties": {
+					"force_neosync_configuration_priority": {
+						"type": "boolean",
+						"description": "Включить принудительный приоритет конфигурации NeoSync."
+					}
+				},
+				"additionalProperties": false
+			},
+			"AccessFields": {
+				"type": "object",
+				"properties": {
+					"access_treker_create": { "type": "boolean" },
+					"access_treker_edit": { "type": "boolean" },
+					"access_treker_delete": { "type": "boolean" },
+					"access_group_manage": { "type": "boolean" },
+					"access_configuration_read": { "type": "boolean" },
+					"access_configuration_apply": { "type": "boolean" },
+					"access_configuration_history": { "type": "boolean" },
+					"access_command_send": { "type": "boolean" },
+					"access_log_read": { "type": "boolean" }
+				}
+			},
+			"UsersWPResponse": {
+				"type": "object",
+				"properties": {
+					"items": {
+						"type": "array",
+						"items": { "$ref": "#/components/schemas/User" }
+					},
+					"page": { "type": "integer" },
+					"limit": { "type": "integer" },
+					"total": { "type": "integer" },
+					"total_pages": { "type": "integer" }
+				},
+				"required": ["items", "page", "limit", "total", "total_pages"]
+			},
+			"UserToOwner": {
+				"type": "object",
+				"properties": {
+					"user_uuid": {
+						"type": "string",
+						"format": "uuid",
+						"example": "a3f5c2a1-7c4b-4c9a-9d2a-123456789abc"
+					},
+					"email": {
+						"type": "string",
+						"format": "email",
+						"example": "user@example.com"
+					},
+					"role_code": {
+						"type": "string",
+						"example": "admin_l2"
+					}
+				},
+				"required": ["user_uuid", "email", "role_code"]
+			},
+			"UpdateUserMePayload": {
+				"type": "object",
+				"properties": {
+					"email": {
+						"type": "string",
+						"format": "email",
+						"example": "user@example.com"
+					},
+					"password": {
+						"type": "string",
+						"minLength": 6,
+						"maxLength": 16,
+						"example": "secret123"
+					},
+					"phone": {
+						"type": "string",
+						"example": "79991234567",
+						"description": "Телефон без + и пробелов."
+					},
+					"name_organization": {
+						"type": "string",
+						"example": "Neomatica"
+					},
+					"locality": {
+						"type": "string",
+						"example": "Berlin"
+					},
+					"language": {
+						"type": "string",
+						"example": "ru"
+					}
+				}
+			},
+			"UpdateUserOnesPayload": {
+				"type": "object",
+				"properties": {
+					"email": {
+						"type": "string",
+						"format": "email"
+					},
+					"password": {
+						"type": "string",
+						"minLength": 6,
+						"maxLength": 16
+					},
+					"phone": {
+						"type": "string",
+						"example": "79991234567"
+					},
+					"name_organization": {
+						"type": "string"
+					},
+					"locality": {
+						"type": "string"
+					},
+					"language": {
+						"type": "string"
+					},
+					"accesses": {
+						"$ref": "#/components/schemas/PtrAccessFields"
+					}
+				}
+			},
+			"User": {
+				"type": "object",
+				"properties": {
+					"user_contact": {
+						"$ref": "#/components/schemas/UserContact"
+					},
+					"parent_uuid": {
+						"type": "string",
+						"format": "uuid",
+						"nullable": true
+					},
+					"email": { "type": "string", "format": "email" },
+					"parent_email": {
+						"type": "string",
+						"format": "email",
+						"nullable": true
+					},
+					"role": { "$ref": "#/components/schemas/Role" },
+					"access_treker_create": { "type": "boolean" },
+					"access_treker_edit": { "type": "boolean" },
+					"access_treker_delete": { "type": "boolean" },
+					"access_group_manage": { "type": "boolean" },
+					"access_configuration_read": { "type": "boolean" },
+					"access_configuration_apply": { "type": "boolean" },
+					"access_configuration_history": { "type": "boolean" },
+					"access_command_send": { "type": "boolean" },
+					"access_log_read": { "type": "boolean" }
+				},
+				"required": ["user_contact", "email", "role"]
+			},
+			"UserContact": {
+				"type": "object",
+				"properties": {
+					"id": { "type": "integer" },
+					"created_at": { "type": "string", "format": "date-time" },
+					"updated_at": { "type": "string", "format": "date-time" },
+					"user_uuid": { "type": "string", "format": "uuid" },
+					"name_organization": { "type": "string", "nullable": true },
+					"locality": { "type": "string", "nullable": true },
+					"phone": { "type": "string", "nullable": true },
+					"language": { "type": "string" }
+				},
+				"required": [
+					"id",
+					"created_at",
+					"updated_at",
+					"user_uuid",
+					"language"
+				]
+			},
+			"Role": {
+				"type": "object",
+				"properties": {
+					"code": { "type": "string" },
+					"name": { "type": "string" }
+				},
+				"required": ["code", "name"]
+			},
+			"DeleteUsersPayload": {
+				"type": "object",
+				"properties": {
+					"uuids": {
+						"type": "array",
+						"items": {
+							"type": "string",
+							"format": "uuid"
+						},
+						"description": "Список UUID пользователей для удаления",
+						"example": [
+							"123e4567-e89b-12d3-a456-426614174000",
+							"987e6543-e21b-12d3-a456-426614174999"
+						]
+					}
+				},
+				"required": ["uuids"]
+			},
+			"CreateDevicePayload": {
+				"type": "object",
+				"required": ["imei", "model", "turnstile_token"],
+				"properties": {
+					"imei": {
+						"type": "string",
+						"description": "IMEI устройства.",
+						"example": "123456789012345"
+					},
+					"model": {
+						"type": "string",
+						"description": "Модель устройства.",
+						"maxLength": 10,
+						"example": "ADMRC-1"
+					},
+					"password": {
+						"type": "string",
+						"description": "Пароль устройства.",
+						"maxLength": 16,
+						"example": "123456"
+					},
+					"request_configuration_on_connect": {
+						"type": "boolean",
+						"description": "Запрашивать конфигурацию при подключении устройства.",
+						"example": true
+					},
+					"turnstile_token": {
+						"type": "string",
+						"description": "Токен Yandex SmartCaptcha.",
+						"example": "1x00000000000000000000AA"
+					}
+				}
+			},
+			"DeviceDeviceConfSync": {
+				"type": "object",
+				"description": "Данные устройства, его конфигурации, состояния синхронизации и связанной информации.",
+				"properties": {
+					"id": {
+						"type": "integer",
+						"format": "uint64",
+						"example": 1
+					},
+					"created_at": {
+						"type": "string",
+						"format": "date-time",
+						"example": "2024-01-10T12:00:00Z"
+					},
+					"updated_at": {
+						"type": "string",
+						"format": "date-time",
+						"example": "2024-01-12T09:30:00Z"
+					},
+					"user_uuid": {
+						"type": "string",
+						"nullable": true,
+						"example": "550e8400-e29b-41d4-a716-446655440000"
+					},
+					"name": {
+						"type": "string",
+						"example": "Tracker 1"
+					},
+					"imei": {
+						"type": "string",
+						"example": "123456789012345"
+					},
+					"status": {
+						"type": "boolean",
+						"example": true
+					},
+					"device_model": {
+						"type": "string",
+						"nullable": true,
+						"example": "ADMRC-1"
+					},
+					"activated": {
+						"type": "boolean",
+						"nullable": true,
+						"example": true
+					},
+
+					"has_password": {
+						"type": "boolean",
+						"description": "Установлен ли пароль у устройства.",
+						"example": true
+					},
+					"request_configuration_on_connect": {
+						"type": "boolean",
+						"description": "Запрашивать конфигурацию при подключении устройства.",
+						"example": false
+					},
+
+					"firmware_version": {
+						"type": "integer",
+						"format": "uint16",
+						"example": 256
+					},
+					"firmware_version_upd": {
+						"type": "integer",
+						"format": "uint16",
+						"example": 257
+					},
+					"cfg_version": {
+						"type": "integer",
+						"format": "uint8",
+						"example": 3
+					},
+					"last_mod_time": {
+						"type": "integer",
+						"format": "uint32",
+						"description": "Время последней модификации конфигурации (timestamp).",
+						"example": 1704883200
+					},
+					"cfg_hash": {
+						"type": "integer",
+						"format": "uint32",
+						"example": 123456789
+					},
+
+					"user_email": {
+						"type": "string",
+						"nullable": true,
+						"example": "user@example.com"
+					},
+
+					"group_name": {
+						"type": "string",
+						"nullable": true,
+						"example": "Fleet A"
+					},
+					"group_id": {
+						"type": "integer",
+						"format": "uint64",
+						"nullable": true,
+						"example": 10
+					}
+				}
+			},
+			"DevicesWPResponse": {
+				"type": "object",
+				"properties": {
+					"items": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/DeviceDeviceConfSync"
+						}
+					},
+					"page": {
+						"type": "integer",
+						"example": 1
+					},
+					"limit": {
+						"type": "integer",
+						"example": 10
+					},
+					"total": {
+						"type": "integer",
+						"example": 125
+					},
+					"total_pages": {
+						"type": "integer",
+						"example": 13
+					}
+				}
+			},
+			"AdmLogItem": {
+				"type": "object",
+				"description": "Элемент административного лога устройства.",
+				"properties": {
+					"id": {
+						"type": "string",
+						"description": "Идентификатор события.",
+						"example": "f1b2c3d4"
+					},
+					"ts": {
+						"type": "integer",
+						"format": "int64",
+						"description": "Время события (unix timestamp).",
+						"example": 1704883200
+					},
+					"event": {
+						"type": "string",
+						"description": "Тип события.",
+						"example": "DEVICE_CONNECTED"
+					},
+					"payload": {
+						"description": "Дополнительные данные события.",
+						"nullable": true
+					}
+				}
+			},
+			"DeviceImeiState": {
+				"type": "object",
+				"description": "Состояние IMEI устройства.",
+				"properties": {
+					"imei": {
+						"type": "string",
+						"description": "IMEI устройства (15 цифр).",
+						"example": "123456789012345"
+					},
+					"status": {
+						"type": "boolean",
+						"description": "Статус устройства (активно/неактивно).",
+						"example": true
+					},
+					"activated": {
+						"type": "boolean",
+						"nullable": true,
+						"description": "Флаг активации устройства на сервере.",
+						"example": true
+					}
+				}
+			},
+			"TransferAccountPayload": {
+				"type": "object",
+				"description": "Параметры для трансфера устройств на другой аккаунт.",
+				"properties": {
+					"imeis": {
+						"type": "array",
+						"description": "Список IMEI устройств (по 15 цифр).",
+						"items": {
+							"type": "string",
+							"example": "123456789012345"
+						}
+					},
+					"uuid": {
+						"type": "string",
+						"nullable": true,
+						"description": "UUID пользователя, на чей аккаунт переносится устройство. Если null, устройство отвязывается.",
+						"example": "a1b2c3d4-e5f6-7890-1234-56789abcdef0"
+					},
+					"turnstile_token": {
+						"type": "string",
+						"description": "Токен Yandex SmartCaptcha для защиты от спама.",
+						"example": "1x00000000000000000000AA"
+					}
+				},
+				"required": ["imeis", "turnstile_token"]
+			},
+			"DeviceStatus": {
+				"type": "object",
+				"description": "Статус устройства по IMEI.",
+				"properties": {
+					"status": {
+						"type": "boolean",
+						"description": "Текущий статус устройства (активно/неактивно).",
+						"example": true
+					}
+				}
+			},
+			"EditDevicePayload": {
+				"type": "object",
+				"description": "Параметры для обновления устройства.",
+				"properties": {
+					"imei": {
+						"type": "string",
+						"nullable": true,
+						"description": "Новый IMEI устройства (опционально).",
+						"example": "123456789012345"
+					},
+					"model": {
+						"type": "string",
+						"nullable": true,
+						"description": "Модель устройства (макс. 10 символов).",
+						"example": "ADMRC-2"
+					},
+					"password": {
+						"type": "string",
+						"nullable": true,
+						"description": "Пароль устройства (макс. 16 символов).",
+						"example": "newpassword123"
+					},
+					"request_configuration_on_connect": {
+						"type": "boolean",
+						"nullable": true,
+						"description": "Флаг запроса конфигурации при подключении.",
+						"example": true
+					}
+				}
+			},
+			"ActionObjectsGroupPayload": {
+				"type": "object",
+				"properties": {
+					"devices_id": {
+						"type": "array",
+						"items": {
+							"type": "integer",
+							"minimum": 1
+						},
+						"example": [1, 2, 3]
+					}
+				},
+				"required": ["devices_id"]
+			},
+			"CreateGroupPayload": {
+				"type": "object",
+				"properties": {
+					"name": {
+						"type": "string",
+						"maxLength": 30,
+						"example": "Мои трекеры"
+					},
+					"description": {
+						"type": "string",
+						"maxLength": 300,
+						"example": "Группа служебных устройств"
+					},
+					"turnstile_token": {
+						"type": "string",
+						"description": "Yandex SmartCaptcha токен."
+					}
+				},
+				"required": ["name", "turnstile_token"]
+			},
+			"GroupsName": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "integer",
+						"example": 1
+					},
+					"name": {
+						"type": "string",
+						"example": "Мои трекеры"
+					}
+				},
+				"required": ["id", "name"]
+			},
+			"Group": {
+				"type": "object",
+				"properties": {
+					"id": { "type": "integer", "example": 1 },
+					"created_at": {
+						"type": "string",
+						"format": "date-time",
+						"example": "2026-02-05T08:00:00Z"
+					},
+					"updated_at": {
+						"type": "string",
+						"format": "date-time",
+						"example": "2026-02-05T09:00:00Z"
+					},
+					"user_uuid": {
+						"type": "string",
+						"example": "uuid-user-1234"
+					},
+					"name": { "type": "string", "example": "Мои трекеры" },
+					"description": {
+						"type": "string",
+						"example": "Описание группы"
+					},
+					"objects": { "type": "integer", "example": 15 }
+				},
+				"required": [
+					"id",
+					"created_at",
+					"updated_at",
+					"user_uuid",
+					"name",
+					"description",
+					"objects"
+				]
+			},
+			"GroupsWPResponse": {
+				"type": "object",
+				"properties": {
+					"items": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/Group"
+						}
+					},
+					"page": {
+						"type": "integer",
+						"example": 1
+					},
+					"limit": {
+						"type": "integer",
+						"example": 10
+					},
+					"total": {
+						"type": "integer",
+						"example": 25
+					},
+					"totalPages": {
+						"type": "integer",
+						"example": 3
+					}
+				},
+				"required": ["items", "page", "limit", "total", "totalPages"]
+			},
+			"DevicesGroupResponse": {
+				"type": "object",
+				"properties": {
+					"devices_in_group": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/DevicesInGroup"
+						}
+					},
+					"devices_not_in_group": {
+						"type": "array",
+						"items": {
+							"$ref": "#/components/schemas/DevicesInGroup"
+						}
+					}
+				},
+				"required": ["devices_in_group", "devices_not_in_group"]
+			},
+			"DevicesInGroup": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "integer",
+						"example": 123
+					},
+					"imei": {
+						"type": "string",
+						"example": "867530987654321"
+					}
+				},
+				"required": ["id", "imei"]
+			},
+			"GroupByObjects": {
+				"type": "object",
+				"allOf": [
+					{ "$ref": "#/components/schemas/Group" },
+					{
+						"type": "object",
+						"properties": {
+							"devices_in_group": {
+								"type": "array",
+								"items": {
+									"$ref": "#/components/schemas/DevicesInGroup"
+								}
+							},
+							"devices_not_in_group": {
+								"type": "array",
+								"items": {
+									"$ref": "#/components/schemas/DevicesInGroup"
+								}
+							}
+						},
+						"required": ["devices_in_group", "devices_not_in_group"]
+					}
+				]
+			},
+			"Sync": {
+				"type": "object",
+				"properties": {
+					"id": {
+						"type": "integer",
+						"format": "uint64",
+						"example": 123
+					},
+					"created_at": {
+						"type": "string",
+						"format": "date-time",
+						"example": "2025-02-05T10:15:30Z"
+					},
+					"updated_at": {
+						"type": "string",
+						"format": "date-time",
+						"example": "2025-02-06T12:40:00Z"
+					},
+					"device_id": {
+						"type": "integer",
+						"format": "uint64",
+						"example": 42
+					},
+					"firmware_version": {
+						"type": "integer",
+						"format": "uint16",
+						"example": 120
+					},
+					"firmware_version_upd": {
+						"type": "integer",
+						"format": "uint16",
+						"example": 121
+					},
+					"cfg_version": {
+						"type": "integer",
+						"format": "uint8",
+						"example": 3
+					},
+					"last_mod_time": {
+						"type": "integer",
+						"format": "uint32",
+						"example": 1707123456
+					},
+					"cfg_hash": {
+						"type": "integer",
+						"format": "uint32",
+						"example": 987654321
+					}
+				},
+				"required": [
+					"id",
+					"created_at",
+					"updated_at",
+					"device_id",
+					"firmware_version",
+					"firmware_version_upd",
+					"cfg_version",
+					"last_mod_time",
+					"cfg_hash"
+				]
+			},
+			"MessageResponse": {
+				"type": "object",
+				"properties": {
+					"message": {
+						"type": "string"
+					}
+				}
+			},
+			"ErrorResponse": {
+				"type": "object",
+				"properties": {
+					"message": {
+						"type": "string"
+					}
+				}
+			}
+		}
+	}
+}

@@ -1,0 +1,170 @@
+name: neosync
+
+services:
+    db:
+        image: postgres:17-alpine
+        restart: unless-stopped
+        environment:
+            POSTGRES_DB: neosync
+            POSTGRES_USER: postgres
+            POSTGRES_PASSWORD: password
+        volumes:
+            - postgres_data:/var/lib/postgresql/data
+        healthcheck:
+            test:
+                [
+                    'CMD-SHELL',
+                    'pg_isready -U $${POSTGRES_USER} -d $${POSTGRES_DB}',
+                ]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+            start_period: 10s
+        security_opt:
+            - no-new-privileges:true
+        logging:
+            driver: json-file
+            options:
+                max-size: '10m'
+                max-file: '3'
+
+    rabbitmq:
+        image: rabbitmq:3-management
+        restart: unless-stopped
+        environment:
+            RABBITMQ_DEFAULT_USER: guest
+            RABBITMQ_DEFAULT_PASS: guest
+        volumes:
+            - rabbitmq_data:/var/lib/rabbitmq
+        ports:
+            - '5672:5672'
+            - '15672:15672'
+        healthcheck:
+            test: ['CMD', 'rabbitmq-diagnostics', '-q', 'ping']
+            interval: 10s
+            timeout: 5s
+            retries: 5
+            start_period: 10s
+        security_opt:
+            - no-new-privileges:true
+        logging:
+            driver: json-file
+            options:
+                max-size: '10m'
+                max-file: '3'
+
+    redis:
+        image: redis:7-alpine
+        restart: unless-stopped
+        environment:
+            REDIS_PASSWORD: red1spa55
+        command:
+            - sh
+            - -c
+            - exec redis-server --appendonly yes --requirepass "$$REDIS_PASSWORD"
+        volumes:
+            - redis_data:/data
+        healthcheck:
+            test:
+                [
+                    'CMD-SHELL',
+                    'redis-cli -a "$$REDIS_PASSWORD" ping | grep PONG',
+                ]
+            interval: 10s
+            timeout: 5s
+            retries: 5
+            start_period: 5s
+        security_opt:
+            - no-new-privileges:true
+        logging:
+            driver: json-file
+            options:
+                max-size: '10m'
+                max-file: '3'
+
+    client:
+        build:
+            context: client/src/main/resources/ui
+            dockerfile: Dockerfile
+        restart: unless-stopped
+        env_file:
+            - ./client/src/main/resources/ui/.env
+        ports:
+            - '5173:5173'
+        volumes:
+            - ./client/src/main/resources/ui:/app
+            - client_node_modules:/app/node_modules
+        depends_on:
+            db:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+            rabbitmq:
+                condition: service_healthy
+        security_opt:
+            - no-new-privileges:true
+        logging:
+            driver: json-file
+            options:
+                max-size: '10m'
+                max-file: '3'
+
+    http_server:
+        restart: always
+        build:
+            context: http-server
+            dockerfile: Dockerfile
+        env_file:
+            - ./http-server/.env
+        command: air
+        ports:
+            - '8080:8080'
+        volumes:
+            - ./http-server:/app
+        depends_on:
+            db:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+            rabbitmq:
+                condition: service_healthy
+        security_opt:
+            - no-new-privileges:true
+        logging:
+            driver: json-file
+            options:
+                max-size: '10m'
+                max-file: '3'
+
+    tcp_server:
+        restart: always
+        build:
+            context: tcp-server
+            dockerfile: Dockerfile
+        env_file:
+            - ./tcp-server/.env
+        command: air
+        ports:
+            - '12346:12346'
+        volumes:
+            - ./tcp-server:/app
+        depends_on:
+            db:
+                condition: service_healthy
+            redis:
+                condition: service_healthy
+            rabbitmq:
+                condition: service_healthy
+        security_opt:
+            - no-new-privileges:true
+        logging:
+            driver: json-file
+            options:
+                max-size: '10m'
+                max-file: '3'
+
+volumes:
+    postgres_data:
+    redis_data:
+    rabbitmq_data:
+    client_node_modules:

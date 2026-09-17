@@ -1,0 +1,1 @@
+export const BULK_CONFIGURATION_MAX_DEVICES = 250;

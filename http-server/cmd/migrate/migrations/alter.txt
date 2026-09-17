@@ -1,0 +1,446 @@
+-- +goose Up
+-- +goose StatementBegin
+-- Безопасная миграция для PROD: только CREATE INDEX IF NOT EXISTS, COMMENT ON, ALTER TABLE ADD/DROP CONSTRAINT.
+-- Данные не удаляются. Старые goose-миграции на проде не перезапускаются — применяется только этот файл.
+
+-- +Indexes
+CREATE INDEX IF NOT EXISTS idx_user_cores_email ON user_cores(email);
+CREATE INDEX IF NOT EXISTS idx_user_cores_user_uuid ON user_cores(user_uuid);
+CREATE INDEX IF NOT EXISTS idx_user_cores_parent_uuid ON user_cores(parent_uuid);
+
+CREATE INDEX IF NOT EXISTS idx_user_contacts_user_uuid ON user_contacts(user_uuid);
+CREATE INDEX IF NOT EXISTS idx_user_roles_user_uuid ON user_roles(user_uuid);
+CREATE INDEX IF NOT EXISTS idx_user_accesses_user_uuid ON user_accesses(user_uuid);
+
+CREATE INDEX IF NOT EXISTS idx_groups_user_uuid ON groups(user_uuid);
+
+CREATE INDEX IF NOT EXISTS idx_devices_imei ON devices(imei);
+CREATE INDEX IF NOT EXISTS idx_devices_user_uuid ON devices(user_uuid);
+CREATE INDEX IF NOT EXISTS idx_devices_owner_uuid ON devices(owner_uuid);
+
+CREATE INDEX IF NOT EXISTS idx_device_confs_device_id ON device_confs(device_id);
+CREATE INDEX IF NOT EXISTS idx_configurations_device_id ON configurations(device_id);
+CREATE INDEX IF NOT EXISTS idx_syncs_device_id ON syncs(device_id);
+
+CREATE INDEX IF NOT EXISTS idx_group_user_devices_group_id ON group_user_devices(group_id);
+CREATE INDEX IF NOT EXISTS idx_group_user_devices_device_id ON group_user_devices(device_id);
+
+CREATE INDEX IF NOT EXISTS idx_group_members_member_uuid ON group_members(member_user_uuid);
+
+CREATE INDEX IF NOT EXISTS idx_device_commands_user_uuid ON device_commands(user_uuid);
+CREATE INDEX IF NOT EXISTS idx_device_commands_user_created_at ON device_commands(user_uuid, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_device_commands_session_user ON device_commands(session_id, user_uuid);
+
+CREATE INDEX IF NOT EXISTS idx_device_command_executions_command_id ON device_command_executions(command_id);
+CREATE INDEX IF NOT EXISTS idx_device_command_executions_device_imei ON device_command_executions(device_imei);
+
+CREATE INDEX IF NOT EXISTS idx_configuration_history_device_id ON configuration_history(device_id);
+CREATE INDEX IF NOT EXISTS idx_configuration_history_device_apply_at ON configuration_history(device_id, apply_at DESC);
+
+CREATE INDEX IF NOT EXISTS idx_analytic_records_created_at ON analytic_records(created_at);
+CREATE INDEX IF NOT EXISTS idx_analytic_records_user_uuid ON analytic_records(user_uuid);
+CREATE INDEX IF NOT EXISTS idx_analytic_records_device_id ON analytic_records(device_id);
+CREATE INDEX IF NOT EXISTS idx_analytic_records_cfg_hash ON analytic_records(cfg_hash);
+
+CREATE INDEX IF NOT EXISTS idx_analytics_users_created_at ON analytics_users(created_at);
+CREATE INDEX IF NOT EXISTS idx_analytics_users_user_uuid ON analytics_users(user_uuid);
+CREATE INDEX IF NOT EXISTS idx_analytics_users_is_online ON analytics_users(is_online);
+
+CREATE INDEX IF NOT EXISTS idx_companies_user_uuid ON companies(user_uuid);
+
+CREATE INDEX IF NOT EXISTS idx_company_tasks_company_id ON company_tasks(company_id);
+CREATE INDEX IF NOT EXISTS idx_company_tasks_device_id ON company_tasks(device_id);
+CREATE INDEX IF NOT EXISTS idx_company_tasks_company_status ON company_tasks(company_id, status);
+-- +Indexes
+
+-- +ForeignKeys
+-- user_cores: self-reference
+ALTER TABLE user_cores DROP CONSTRAINT IF EXISTS fk_user_cores_parent;
+ALTER TABLE user_cores ADD CONSTRAINT fk_user_cores_parent
+    FOREIGN KEY (parent_uuid) REFERENCES user_cores(user_uuid) ON DELETE SET NULL;
+
+-- user_contacts
+ALTER TABLE user_contacts DROP CONSTRAINT IF EXISTS fk_user_contacts_user;
+ALTER TABLE user_contacts ADD CONSTRAINT fk_user_contacts_user
+    FOREIGN KEY (user_uuid) REFERENCES user_cores(user_uuid) ON DELETE CASCADE;
+
+-- user_roles: переименовать старый constraint, добавить ссылку на user_cores
+DO $$
+BEGIN
+    IF NOT EXISTS (
+        SELECT 1 FROM pg_constraint WHERE conname = 'fk_user_roles_role' AND conrelid = 'user_roles'::regclass
+    ) THEN
+        IF EXISTS (
+            SELECT 1 FROM pg_constraint WHERE conname = 'fk_role_code' AND conrelid = 'user_roles'::regclass
+        ) THEN
+            ALTER TABLE user_roles RENAME CONSTRAINT fk_role_code TO fk_user_roles_role;
+        ELSE
+            ALTER TABLE user_roles ADD CONSTRAINT fk_user_roles_role
+                FOREIGN KEY (role_code) REFERENCES roles(code) ON DELETE RESTRICT;
+        END IF;
+    END IF;
+END $$;
+ALTER TABLE user_roles DROP CONSTRAINT IF EXISTS fk_user_roles_user;
+ALTER TABLE user_roles ADD CONSTRAINT fk_user_roles_user
+    FOREIGN KEY (user_uuid) REFERENCES user_cores(user_uuid) ON DELETE CASCADE;
+
+-- user_accesses
+ALTER TABLE user_accesses DROP CONSTRAINT IF EXISTS fk_user_accesses_user;
+ALTER TABLE user_accesses ADD CONSTRAINT fk_user_accesses_user
+    FOREIGN KEY (user_uuid) REFERENCES user_cores(user_uuid) ON DELETE CASCADE;
+
+-- groups
+ALTER TABLE groups DROP CONSTRAINT IF EXISTS fk_groups_user;
+ALTER TABLE groups ADD CONSTRAINT fk_groups_user
+    FOREIGN KEY (user_uuid) REFERENCES user_cores(user_uuid) ON DELETE CASCADE;
+
+-- devices
+ALTER TABLE devices DROP CONSTRAINT IF EXISTS fk_devices_user;
+ALTER TABLE devices DROP CONSTRAINT IF EXISTS fk_devices_owner;
+ALTER TABLE devices ADD CONSTRAINT fk_devices_user
+    FOREIGN KEY (user_uuid) REFERENCES user_cores(user_uuid) ON DELETE SET NULL;
+ALTER TABLE devices ADD CONSTRAINT fk_devices_owner
+    FOREIGN KEY (owner_uuid) REFERENCES user_cores(user_uuid) ON DELETE SET NULL;
+
+-- device_confs: переименование constraint + CASCADE (поведение то же)
+ALTER TABLE device_confs DROP CONSTRAINT IF EXISTS fk_device_id;
+ALTER TABLE device_confs DROP CONSTRAINT IF EXISTS fk_device_confs_device;
+ALTER TABLE device_confs ADD CONSTRAINT fk_device_confs_device
+    FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE;
+
+-- configurations
+ALTER TABLE configurations DROP CONSTRAINT IF EXISTS fk_device_id;
+ALTER TABLE configurations DROP CONSTRAINT IF EXISTS fk_configurations_device;
+ALTER TABLE configurations ADD CONSTRAINT fk_configurations_device
+    FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE;
+
+-- syncs
+ALTER TABLE syncs DROP CONSTRAINT IF EXISTS fk_device_id;
+ALTER TABLE syncs DROP CONSTRAINT IF EXISTS fk_syncs_device;
+ALTER TABLE syncs ADD CONSTRAINT fk_syncs_device
+    FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE;
+
+-- group_user_devices
+ALTER TABLE group_user_devices DROP CONSTRAINT IF EXISTS fk_group;
+ALTER TABLE group_user_devices DROP CONSTRAINT IF EXISTS fk_device;
+ALTER TABLE group_user_devices DROP CONSTRAINT IF EXISTS fk_group_user_devices_group;
+ALTER TABLE group_user_devices DROP CONSTRAINT IF EXISTS fk_group_user_devices_device;
+ALTER TABLE group_user_devices ADD CONSTRAINT fk_group_user_devices_group
+    FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE;
+ALTER TABLE group_user_devices ADD CONSTRAINT fk_group_user_devices_device
+    FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE;
+
+-- configuration_history
+ALTER TABLE configuration_history DROP CONSTRAINT IF EXISTS fk_history_device;
+ALTER TABLE configuration_history DROP CONSTRAINT IF EXISTS fk_configuration_history_device;
+ALTER TABLE configuration_history ADD CONSTRAINT fk_configuration_history_device
+    FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE;
+
+-- group_members
+ALTER TABLE group_members DROP CONSTRAINT IF EXISTS fk_group_members_user;
+ALTER TABLE group_members ADD CONSTRAINT fk_group_members_user
+    FOREIGN KEY (member_user_uuid) REFERENCES user_cores(user_uuid) ON DELETE CASCADE;
+
+-- device_commands
+ALTER TABLE device_commands DROP CONSTRAINT IF EXISTS fk_device_commands_user;
+ALTER TABLE device_commands ADD CONSTRAINT fk_device_commands_user
+    FOREIGN KEY (user_uuid) REFERENCES user_cores(user_uuid) ON DELETE CASCADE;
+
+-- device_command_executions
+ALTER TABLE device_command_executions DROP CONSTRAINT IF EXISTS device_command_executions_command_id_fkey;
+ALTER TABLE device_command_executions DROP CONSTRAINT IF EXISTS fk_device_command_executions_command;
+ALTER TABLE device_command_executions ADD CONSTRAINT fk_device_command_executions_command
+    FOREIGN KEY (command_id) REFERENCES device_commands(id) ON DELETE CASCADE;
+
+-- analytic_records
+ALTER TABLE analytic_records DROP CONSTRAINT IF EXISTS fk_analytic_records_user;
+ALTER TABLE analytic_records ADD CONSTRAINT fk_analytic_records_user
+    FOREIGN KEY (user_uuid) REFERENCES user_cores(user_uuid) ON DELETE CASCADE;
+
+-- analytics_users
+ALTER TABLE analytics_users DROP CONSTRAINT IF EXISTS fk_analytics_users_user;
+ALTER TABLE analytics_users ADD CONSTRAINT fk_analytics_users_user
+    FOREIGN KEY (user_uuid) REFERENCES user_cores(user_uuid) ON DELETE CASCADE;
+
+-- companies / company_tasks (если таблицы уже созданы предыдущими миграциями)
+DO $$
+BEGIN
+    IF to_regclass('public.companies') IS NOT NULL THEN
+        ALTER TABLE companies DROP CONSTRAINT IF EXISTS fk_companies_user;
+        ALTER TABLE companies ADD CONSTRAINT fk_companies_user
+            FOREIGN KEY (user_uuid) REFERENCES user_cores(user_uuid) ON DELETE CASCADE;
+    END IF;
+
+    IF to_regclass('public.company_tasks') IS NOT NULL THEN
+        ALTER TABLE company_tasks DROP CONSTRAINT IF EXISTS fk_company_tasks_company;
+        ALTER TABLE company_tasks DROP CONSTRAINT IF EXISTS fk_company_tasks_device;
+        ALTER TABLE company_tasks ADD CONSTRAINT fk_company_tasks_company
+            FOREIGN KEY (company_id) REFERENCES companies(id) ON DELETE CASCADE;
+        ALTER TABLE company_tasks ADD CONSTRAINT fk_company_tasks_device
+            FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE;
+    END IF;
+END $$;
+-- +ForeignKeys
+
+-- +Comments
+COMMENT ON TABLE roles IS 'User roles and access levels in the system';
+COMMENT ON COLUMN roles.id IS 'Primary key';
+COMMENT ON COLUMN roles.code IS 'Unique role index used for identification';
+COMMENT ON COLUMN roles.name_key IS 'Role name';
+COMMENT ON COLUMN roles.desc_key IS 'Detailed description of the role capabilities';
+
+COMMENT ON COLUMN user_cores.id IS 'Primary unique identifier';
+COMMENT ON COLUMN user_cores.created_at IS 'Record creation timestamp';
+COMMENT ON COLUMN user_cores.updated_at IS 'Record last update timestamp';
+COMMENT ON COLUMN user_cores.user_uuid IS 'Uuid of the user';
+COMMENT ON COLUMN user_cores.parent_uuid IS 'Uuid of the parent user (nullable)';
+COMMENT ON COLUMN user_cores.can_view_child_groups IS 'Whether the user can view groups of child accounts';
+COMMENT ON COLUMN user_cores.email IS 'User email address (unique)';
+COMMENT ON COLUMN user_cores.password IS 'Hashed user password';
+COMMENT ON COLUMN user_cores.refresh_token IS 'JWT refresh token for authentication (unique)';
+
+COMMENT ON COLUMN user_contacts.id IS 'Primary unique identifier';
+COMMENT ON COLUMN user_contacts.created_at IS 'Record creation timestamp';
+COMMENT ON COLUMN user_contacts.updated_at IS 'Record last update timestamp';
+COMMENT ON COLUMN user_contacts.user_uuid IS 'Uuid of the associated user (must be unique)';
+COMMENT ON COLUMN user_contacts.name_organization IS 'Name of the organization or individual contact';
+COMMENT ON COLUMN user_contacts.locality IS 'City or locality of the contact';
+COMMENT ON COLUMN user_contacts.phone IS 'Phone number of the contact';
+COMMENT ON COLUMN user_contacts.language IS 'Language preference: ''ru'', ''en'', or ''es''';
+
+COMMENT ON TABLE user_roles IS 'Table linking users to specific roles in the system';
+COMMENT ON COLUMN user_roles.id IS 'Primary unique identifier';
+COMMENT ON COLUMN user_roles.created_at IS 'Record creation timestamp';
+COMMENT ON COLUMN user_roles.updated_at IS 'Record last update timestamp';
+COMMENT ON COLUMN user_roles.user_uuid IS 'Uuid of the user (unique)';
+COMMENT ON COLUMN user_roles.role_code IS 'Foreign key to roles table';
+
+COMMENT ON TABLE user_accesses IS 'Fine-grained access permissions for users';
+COMMENT ON COLUMN user_accesses.id IS 'Primary unique identifier';
+COMMENT ON COLUMN user_accesses.created_at IS 'Record creation timestamp';
+COMMENT ON COLUMN user_accesses.updated_at IS 'Record last update timestamp';
+COMMENT ON COLUMN user_accesses.user_uuid IS 'Uuid of the user';
+COMMENT ON COLUMN user_accesses.access_treker_create IS 'Permission to create tracker records';
+COMMENT ON COLUMN user_accesses.access_treker_edit IS 'Permission to edit tracker records';
+COMMENT ON COLUMN user_accesses.access_treker_delete IS 'Permission to delete tracker records';
+COMMENT ON COLUMN user_accesses.access_group_manage IS 'Permission to manage device groups';
+COMMENT ON COLUMN user_accesses.access_configuration_read IS 'Permission to read device configurations';
+COMMENT ON COLUMN user_accesses.access_configuration_apply IS 'Permission to apply device configurations';
+COMMENT ON COLUMN user_accesses.access_configuration_history IS 'Permission to view configuration history';
+COMMENT ON COLUMN user_accesses.access_command_send IS 'Permission to send commands to devices';
+COMMENT ON COLUMN user_accesses.access_log_read IS 'Permission to read system logs';
+
+COMMENT ON TABLE accesses IS 'Access level definitions for group sharing';
+COMMENT ON COLUMN accesses.id IS 'Primary key of the access record';
+COMMENT ON COLUMN accesses.code IS 'Unique index representing access type';
+COMMENT ON COLUMN accesses.name_key IS 'Name of the access level or permission';
+
+COMMENT ON TABLE groups IS 'Device groups owned or shared by users';
+COMMENT ON COLUMN groups.id IS 'Primary key of the group';
+COMMENT ON COLUMN groups.created_at IS 'Timestamp when the group record was created';
+COMMENT ON COLUMN groups.updated_at IS 'Timestamp when the group record was last updated';
+COMMENT ON COLUMN groups.user_uuid IS 'Uuid of the user who owns the group';
+COMMENT ON COLUMN groups.name IS 'Name of the group';
+COMMENT ON COLUMN groups.description IS 'Description or purpose of the group';
+COMMENT ON COLUMN groups.can_edit_group IS 'Whether group members can edit group settings';
+COMMENT ON COLUMN groups.can_manage_devices IS 'Whether group members can add or remove devices';
+COMMENT ON COLUMN groups.can_read_config IS 'Whether group members can read device configurations';
+COMMENT ON COLUMN groups.can_edit_config IS 'Whether group members can edit device configurations';
+COMMENT ON COLUMN groups.can_send_commands IS 'Whether group members can send commands to devices';
+
+COMMENT ON TABLE devices IS 'GPS tracking devices registered in the system';
+COMMENT ON COLUMN devices.id IS 'Primary key of the device';
+COMMENT ON COLUMN devices.created_at IS 'Timestamp when the device record was created';
+COMMENT ON COLUMN devices.updated_at IS 'Timestamp when the device record was last updated';
+COMMENT ON COLUMN devices.user_uuid IS 'Uuid of the dealer user the device belongs to';
+COMMENT ON COLUMN devices.owner_uuid IS 'Uuid of the end-user who owns the device';
+COMMENT ON COLUMN devices.name IS 'Display name of the device';
+COMMENT ON COLUMN devices.phone IS 'Phone number associated with the device SIM';
+COMMENT ON COLUMN devices.name_organization IS 'Organization name linked to the device';
+COMMENT ON COLUMN devices.imei IS 'Unique IMEI number of the device';
+COMMENT ON COLUMN devices.status IS 'Device status (true = active, false = inactive)';
+COMMENT ON COLUMN devices.device_model IS 'Model of the device';
+COMMENT ON COLUMN devices.device_extended_model IS 'Extended or sub-model variant of the device';
+COMMENT ON COLUMN devices.activated IS 'Whether the device has been activated';
+
+COMMENT ON TABLE device_confs IS 'Connection settings and credentials for devices';
+COMMENT ON COLUMN device_confs.id IS 'Primary key of the device configuration';
+COMMENT ON COLUMN device_confs.created_at IS 'Timestamp when the configuration was created';
+COMMENT ON COLUMN device_confs.updated_at IS 'Timestamp when the configuration was last updated';
+COMMENT ON COLUMN device_confs.device_id IS 'Foreign key to the related device (one-to-one)';
+COMMENT ON COLUMN device_confs.password IS 'Password required for device access';
+COMMENT ON COLUMN device_confs.request_configuration_on_connect IS 'If true, request configuration upon connection';
+
+COMMENT ON TABLE configurations IS 'Current configuration snapshot for each device';
+COMMENT ON COLUMN configurations.id IS 'Primary key of the configuration snapshot';
+COMMENT ON COLUMN configurations.created_at IS 'Timestamp when the snapshot was created';
+COMMENT ON COLUMN configurations.updated_at IS 'Timestamp when the snapshot was last updated';
+COMMENT ON COLUMN configurations.device_id IS 'Foreign key to the related device';
+COMMENT ON COLUMN configurations.cfg_hash IS 'Hash representing this configuration version';
+COMMENT ON COLUMN configurations.cfg_sync_status IS 'Synchronization status: idle, syncing, synced, error';
+COMMENT ON COLUMN configurations.cfg_sync_error IS 'Error message from the last failed sync attempt';
+COMMENT ON COLUMN configurations.cfg_data IS 'Configuration data in binary format (can be null)';
+
+COMMENT ON TABLE syncs IS 'Firmware and configuration sync state for devices';
+COMMENT ON COLUMN syncs.id IS 'Primary key of the sync record';
+COMMENT ON COLUMN syncs.created_at IS 'Timestamp when the sync record was created';
+COMMENT ON COLUMN syncs.updated_at IS 'Timestamp when the sync record was last updated';
+COMMENT ON COLUMN syncs.device_id IS 'Foreign key to the related device';
+COMMENT ON COLUMN syncs.firmware_version IS 'Current version of the device firmware';
+COMMENT ON COLUMN syncs.firmware_version_upd IS 'Target firmware version for update';
+COMMENT ON COLUMN syncs.firmware_updated_at IS 'Timestamp of the last firmware update';
+COMMENT ON COLUMN syncs.cfg_version IS 'Version of the applied configuration';
+COMMENT ON COLUMN syncs.last_mod_time IS 'Last modification time in seconds';
+COMMENT ON COLUMN syncs.cfg_hash IS 'Hash of the last applied configuration';
+
+COMMENT ON TABLE group_user_devices IS 'Many-to-many link between groups and devices';
+COMMENT ON COLUMN group_user_devices.id IS 'Primary unique identifier';
+COMMENT ON COLUMN group_user_devices.group_id IS 'Foreign key to the group';
+COMMENT ON COLUMN group_user_devices.device_id IS 'Foreign key to the device';
+
+COMMENT ON TABLE device_model_sources IS 'Firmware update sources for supported device models';
+COMMENT ON COLUMN device_model_sources.id IS 'Primary unique identifier';
+COMMENT ON COLUMN device_model_sources.created_at IS 'Record creation timestamp';
+COMMENT ON COLUMN device_model_sources.device_model IS 'Unique device model code';
+COMMENT ON COLUMN device_model_sources.firmware_url IS 'URL to fetch firmware updates for this model';
+COMMENT ON COLUMN device_model_sources.firmware_cache_key IS 'Cache key for tracking firmware ETag';
+
+COMMENT ON TABLE configuration_history IS 'Rolling history of applied device configurations (max 15 per device)';
+COMMENT ON COLUMN configuration_history.id IS 'Primary unique identifier';
+COMMENT ON COLUMN configuration_history.apply_at IS 'Timestamp when the configuration was applied';
+COMMENT ON COLUMN configuration_history.device_id IS 'Foreign key to the related device';
+COMMENT ON COLUMN configuration_history.cfg_hash IS 'Hash of the applied configuration';
+COMMENT ON COLUMN configuration_history.cfg_data IS 'Configuration data in binary format';
+
+COMMENT ON TABLE device_commands IS 'Commands sent to devices by users';
+COMMENT ON COLUMN device_commands.id IS 'Primary unique identifier';
+COMMENT ON COLUMN device_commands.created_at IS 'Record creation timestamp';
+COMMENT ON COLUMN device_commands.updated_at IS 'Record last update timestamp';
+COMMENT ON COLUMN device_commands.execute_until IS 'Deadline after which the command expires';
+COMMENT ON COLUMN device_commands.session_id IS 'Session identifier for grouping related commands';
+COMMENT ON COLUMN device_commands.user_uuid IS 'Uuid of the user who sent the command';
+COMMENT ON COLUMN device_commands.send_mode IS 'Delivery mode: instant or on_connect';
+COMMENT ON COLUMN device_commands.status IS 'Command status: pending, inprogress, executionerror, notcompleted, completed';
+COMMENT ON COLUMN device_commands.command IS 'Command payload text';
+
+COMMENT ON TABLE device_command_executions IS 'Per-device execution results for sent commands';
+COMMENT ON COLUMN device_command_executions.id IS 'Primary unique identifier';
+COMMENT ON COLUMN device_command_executions.created_at IS 'Record creation timestamp';
+COMMENT ON COLUMN device_command_executions.updated_at IS 'Record last update timestamp';
+COMMENT ON COLUMN device_command_executions.command_id IS 'Foreign key to the parent command';
+COMMENT ON COLUMN device_command_executions.device_imei IS 'IMEI of the target device';
+COMMENT ON COLUMN device_command_executions.status IS 'Execution status: pending, inprogress, executionerror, notcompleted, completed';
+COMMENT ON COLUMN device_command_executions.response IS 'Response text returned by the device';
+
+COMMENT ON TABLE group_members IS 'Users who are members of shared groups';
+COMMENT ON COLUMN group_members.created_at IS 'Timestamp when the member was added to the group';
+COMMENT ON COLUMN group_members.group_id IS 'Foreign key to the group';
+COMMENT ON COLUMN group_members.member_user_uuid IS 'Uuid of the member user';
+
+COMMENT ON TABLE analytic_records IS 'Analytics events for configuration changes and device state';
+COMMENT ON COLUMN analytic_records.id IS 'Primary unique identifier';
+COMMENT ON COLUMN analytic_records.created_at IS 'Record creation timestamp';
+COMMENT ON COLUMN analytic_records.user_uuid IS 'Uuid of the user who triggered the event';
+COMMENT ON COLUMN analytic_records.device_id IS 'Foreign key to the related device';
+COMMENT ON COLUMN analytic_records.cfg_hash IS 'Hash of the configuration involved in the event';
+COMMENT ON COLUMN analytic_records.rmq_published IS 'Whether the event was published to RabbitMQ';
+COMMENT ON COLUMN analytic_records.device_online IS 'Whether the device was online at event time';
+COMMENT ON COLUMN analytic_records.error_reason IS 'Error description if the event failed';
+
+COMMENT ON TABLE analytics_users IS 'User online status snapshots for analytics';
+COMMENT ON COLUMN analytics_users.id IS 'Primary unique identifier';
+COMMENT ON COLUMN analytics_users.created_at IS 'Record creation timestamp';
+COMMENT ON COLUMN analytics_users.user_uuid IS 'Uuid of the user';
+COMMENT ON COLUMN analytics_users.is_online IS 'Whether the user was online at snapshot time';
+
+COMMENT ON TABLE configurations_prof IS 'Parsed device configuration fields in relational form';
+COMMENT ON COLUMN configurations_prof.id IS 'Primary unique identifier';
+COMMENT ON COLUMN configurations_prof.created_at IS 'Record creation timestamp';
+COMMENT ON COLUMN configurations_prof.updated_at IS 'Record last update timestamp';
+COMMENT ON COLUMN configurations_prof.user_uuid IS 'Uuid of the user who owns the configuration';
+COMMENT ON COLUMN configurations_prof.device_id IS 'Foreign key to the related device (one-to-one)';
+COMMENT ON COLUMN configurations_prof.cfg_hash IS 'Hash of the parsed configuration';
+COMMENT ON COLUMN configurations_prof.unknown_fields IS 'JSON object for configuration fields not mapped to columns';
+
+COMMENT ON TABLE companies IS 'Bulk configuration provisioning jobs for device fleets';
+COMMENT ON COLUMN companies.id IS 'Primary unique identifier';
+COMMENT ON COLUMN companies.created_at IS 'Record creation timestamp';
+COMMENT ON COLUMN companies.updated_at IS 'Record last update timestamp';
+COMMENT ON COLUMN companies.user_uuid IS 'Uuid of the user who created the provisioning job';
+COMMENT ON COLUMN companies.name IS 'Display name of the provisioning job';
+COMMENT ON COLUMN companies.status IS 'Job status: pending, running, completed, failed, cancelled';
+COMMENT ON COLUMN companies.ttl IS 'Time-to-live for the job in days';
+COMMENT ON COLUMN companies.existing_task_action IS 'Action when a device already has a task: skip or overwrite';
+COMMENT ON COLUMN companies.launch_mode IS 'Device selection mode: all or selected';
+COMMENT ON COLUMN companies.incompatible_action IS 'Action for incompatible devices: exclude or fail';
+COMMENT ON COLUMN companies.configuration_source IS 'Configuration source: device or template';
+
+COMMENT ON TABLE company_tasks IS 'Per-device tasks within a bulk provisioning job';
+COMMENT ON COLUMN company_tasks.id IS 'Primary unique identifier';
+COMMENT ON COLUMN company_tasks.created_at IS 'Record creation timestamp';
+COMMENT ON COLUMN company_tasks.updated_at IS 'Record last update timestamp';
+COMMENT ON COLUMN company_tasks.company_id IS 'Foreign key to the parent provisioning job';
+COMMENT ON COLUMN company_tasks.device_id IS 'Foreign key to the target device';
+COMMENT ON COLUMN company_tasks.status IS 'Task status: pending, running, completed, failed, cancelled';
+COMMENT ON COLUMN company_tasks.error_message IS 'Error description if the task failed';
+COMMENT ON COLUMN company_tasks.attempts IS 'Number of execution attempts';
+COMMENT ON COLUMN company_tasks.expires_at IS 'Deadline after which the task expires';
+-- +Comments
+-- +goose StatementEnd
+
+-- +goose Down
+-- +goose StatementBegin
+-- Откат FK (возвращаем старые имена где были). Данные не удаляются.
+ALTER TABLE company_tasks DROP CONSTRAINT IF EXISTS fk_company_tasks_device;
+ALTER TABLE company_tasks DROP CONSTRAINT IF EXISTS fk_company_tasks_company;
+ALTER TABLE companies DROP CONSTRAINT IF EXISTS fk_companies_user;
+
+ALTER TABLE analytics_users DROP CONSTRAINT IF EXISTS fk_analytics_users_user;
+ALTER TABLE analytic_records DROP CONSTRAINT IF EXISTS fk_analytic_records_user;
+
+ALTER TABLE device_command_executions DROP CONSTRAINT IF EXISTS fk_device_command_executions_command;
+ALTER TABLE device_commands DROP CONSTRAINT IF EXISTS fk_device_commands_user;
+ALTER TABLE group_members DROP CONSTRAINT IF EXISTS fk_group_members_user;
+
+ALTER TABLE configuration_history DROP CONSTRAINT IF EXISTS fk_configuration_history_device;
+ALTER TABLE configuration_history ADD CONSTRAINT fk_history_device
+    FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE;
+
+ALTER TABLE group_user_devices DROP CONSTRAINT IF EXISTS fk_group_user_devices_device;
+ALTER TABLE group_user_devices DROP CONSTRAINT IF EXISTS fk_group_user_devices_group;
+ALTER TABLE group_user_devices ADD CONSTRAINT fk_group FOREIGN KEY (group_id) REFERENCES groups(id) ON DELETE CASCADE;
+ALTER TABLE group_user_devices ADD CONSTRAINT fk_device FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE;
+
+ALTER TABLE syncs DROP CONSTRAINT IF EXISTS fk_syncs_device;
+ALTER TABLE syncs ADD CONSTRAINT fk_device_id FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE;
+
+ALTER TABLE configurations DROP CONSTRAINT IF EXISTS fk_configurations_device;
+ALTER TABLE configurations ADD CONSTRAINT fk_device_id FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE;
+
+ALTER TABLE device_confs DROP CONSTRAINT IF EXISTS fk_device_confs_device;
+ALTER TABLE device_confs ADD CONSTRAINT fk_device_id FOREIGN KEY (device_id) REFERENCES devices(id) ON DELETE CASCADE;
+
+ALTER TABLE devices DROP CONSTRAINT IF EXISTS fk_devices_owner;
+ALTER TABLE devices DROP CONSTRAINT IF EXISTS fk_devices_user;
+
+ALTER TABLE groups DROP CONSTRAINT IF EXISTS fk_groups_user;
+ALTER TABLE user_accesses DROP CONSTRAINT IF EXISTS fk_user_accesses_user;
+
+ALTER TABLE user_roles DROP CONSTRAINT IF EXISTS fk_user_roles_user;
+ALTER TABLE user_roles DROP CONSTRAINT IF EXISTS fk_user_roles_role;
+ALTER TABLE user_roles ADD CONSTRAINT fk_role_code FOREIGN KEY (role_code) REFERENCES roles(code);
+
+ALTER TABLE user_contacts DROP CONSTRAINT IF EXISTS fk_user_contacts_user;
+ALTER TABLE user_cores DROP CONSTRAINT IF EXISTS fk_user_cores_parent;
+
+DROP INDEX IF EXISTS idx_company_tasks_company_status;
+DROP INDEX IF EXISTS idx_company_tasks_device_id;
+DROP INDEX IF EXISTS idx_company_tasks_company_id;
+DROP INDEX IF EXISTS idx_companies_user_uuid;
+DROP INDEX IF EXISTS idx_configuration_history_device_apply_at;
+DROP INDEX IF EXISTS idx_configuration_history_device_id;
+DROP INDEX IF EXISTS idx_device_commands_session_user;
+DROP INDEX IF EXISTS idx_device_commands_user_created_at;
+DROP INDEX IF EXISTS idx_device_commands_user_uuid;
+DROP INDEX IF EXISTS idx_devices_owner_uuid;
+-- +goose StatementEnd

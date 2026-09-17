@@ -1,0 +1,86 @@
+name: CI
+
+on:
+    push:
+        branches:
+            - main
+            - preprod
+
+jobs:
+    deploy_preprod:
+        name: 'Deploy pre-production'
+        runs-on: ubuntu-latest
+        if: github.ref == 'refs/heads/preprod'
+        steps:
+            - name: 'http.sslVerify false'
+              run: git config --global http.sslVerify false
+
+            - uses: actions/checkout@v3
+
+            - name: 'Setup SSH'
+              run: |
+                  mkdir -p ~/.ssh
+                  echo "${{ secrets.VPS_PRIVATE_KEY_PREPROD }}" > ~/.ssh/id_ed25519
+                  chmod 600 ~/.ssh/id_ed25519
+                  ssh-keyscan -H ${{ secrets.VPS_HOST_PREPROD }} >> ~/.ssh/known_hosts
+
+            - name: 'SSH Deploy'
+              run: |
+                  ssh -p ${{ secrets.VPS_PORT_PREPROD }} ${{ secrets.VPS_USER_PREPROD }}@${{ secrets.VPS_HOST_PREPROD }} << 'EOF'
+                    set -e
+
+                    cd ./neosync
+
+                    git fetch origin
+                    git reset --hard origin/preprod
+
+                    cd ./scripts
+
+                    bash set_technical_work true
+
+                    bash pre_deploy
+                    bash systemd
+                    bash setup_nginx
+
+                    bash set_technical_work false
+                  EOF
+
+    deploy_prod:
+        name: 'Deploy production'
+        runs-on: ubuntu-latest
+        if: github.ref == 'refs/heads/main'
+        steps:
+            - name: 'http.sslVerify false'
+              run: git config --global http.sslVerify false
+
+            - uses: actions/checkout@v3
+
+            - name: 'Setup SSH'
+              run: |
+                  mkdir -p ~/.ssh
+                  echo "${{ secrets.VPS_PRIVATE_KEY_PROD }}" > ~/.ssh/id_ed25519
+                  chmod 600 ~/.ssh/id_ed25519
+                  ssh-keyscan -H ${{ secrets.VPS_HOST_PROD }} >> ~/.ssh/known_hosts
+
+            - name: 'SSH Deploy'
+              run: |
+                  ssh -p ${{ secrets.VPS_PORT_PROD }} ${{ secrets.VPS_USER_PROD }}@${{ secrets.VPS_HOST_PROD }} << 'EOF'
+                    set -e
+
+                    cd ./neosync
+
+                    git fetch origin
+                    git reset --hard origin/main
+
+                    cd ./scripts
+
+                    export PATH=/usr/local/go/bin:$PATH
+
+                    bash set_technical_work true
+
+                    bash pre_deploy
+                    bash systemd
+                    bash setup_nginx
+
+                    bash set_technical_work false
+                  EOF
