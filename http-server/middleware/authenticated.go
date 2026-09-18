@@ -22,25 +22,31 @@ var (
 	analyticsUserOnlineMu       sync.Mutex
 	analyticsUserOnlineLastSeen = map[string]time.Time{}
 	analyticsUserOnlineTTL      = 5 * time.Minute
+	analyticsUserOnlineLastGC   time.Time
 )
 
 func trackUserOnlineAsync(_ context.Context, h *handler.BaseHandler, userUUID string) {
 	now := time.Now()
 
 	analyticsUserOnlineMu.Lock()
+
+	// Prune at most once per TTL. This keeps the cache bounded without scanning
+	// the whole map on every authenticated request.
+	if analyticsUserOnlineLastGC.IsZero() || now.Sub(analyticsUserOnlineLastGC) >= analyticsUserOnlineTTL {
+		for uuid, seenAt := range analyticsUserOnlineLastSeen {
+			if now.Sub(seenAt) >= analyticsUserOnlineTTL {
+				delete(analyticsUserOnlineLastSeen, uuid)
+			}
+		}
+		analyticsUserOnlineLastGC = now
+	}
+
 	lastSeen, ok := analyticsUserOnlineLastSeen[userUUID]
 	if ok && now.Sub(lastSeen) < analyticsUserOnlineTTL {
 		analyticsUserOnlineMu.Unlock()
 		return
 	}
 
-	// Drop expired entries while we already hold the lock. Without cleanup this
-	// process-level map grows for every user ever seen by this server instance.
-	for uuid, seenAt := range analyticsUserOnlineLastSeen {
-		if now.Sub(seenAt) >= analyticsUserOnlineTTL {
-			delete(analyticsUserOnlineLastSeen, uuid)
-		}
-	}
 	analyticsUserOnlineLastSeen[userUUID] = now
 	analyticsUserOnlineMu.Unlock()
 
