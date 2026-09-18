@@ -1,7 +1,7 @@
 package handlers
 
 import (
-	"neomatica/neosync-tcp/cmd/rabbitmq"
+	"neomatica/neosync-tcp/infra/messaging/rabbitmq"
 	"neomatica/neosync-tcp/infra/store/memory"
 	"neomatica/neosync-tcp/infra/store/postgres/store"
 	"neomatica/neosync-tcp/internal/usecase"
