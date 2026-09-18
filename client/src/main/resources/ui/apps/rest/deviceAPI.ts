@@ -210,6 +210,25 @@ export const basicDeviceLogs = async (imei: string, signal?: AbortSignal): Promi
 	return response.data.message;
 };
 
+export const basicDeviceLogsExport = async (imei: string) => {
+	const response = await axiosClient.get(`${apiPath}/${imei}/logs/export`, {
+		responseType: 'blob',
+	});
+
+	const disposition = response.headers['content-disposition'];
+	const match = disposition?.match(/filename="?([^"]+)"?/);
+	const filename = match?.[1] || `device-${imei}-events.csv`;
+
+	const url = URL.createObjectURL(response.data);
+	const link = document.createElement('a');
+	link.href = url;
+	link.download = filename;
+	document.body.appendChild(link);
+	link.click();
+	link.remove();
+	URL.revokeObjectURL(url);
+};
+
 /**
  * Вывод статус подключения терминала
  */

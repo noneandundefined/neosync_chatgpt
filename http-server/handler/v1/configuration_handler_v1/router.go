@@ -82,6 +82,12 @@ func (h *Handler) RegisterRoutes(router *mux.Router) {
 	)).Methods(http.MethodPost)
 
 	/* Access: ALL */
+	configurationRouter.Handle("/{imei:[0-9]{15}}/configuration/histories", httpx.ErrorHandler(h.GetConfigurationHistoriesHandler_V1)).Methods(http.MethodGet)
+
+	/* Access: ALL */
+	configurationRouter.Handle("/{imei:[0-9]{15}}/configuration/histories/{historyId:[0-9]+}/export", httpx.ErrorHandler(h.ExportConfigurationHistoryHandler_V1)).Methods(http.MethodGet)
+
+	/* Access: ALL */
 	configurationRouter.Handle("/{imei:[0-9]{15}}/configuration/export", httpx.ErrorHandler(h.ConfigurationExportByImeiHandler_V1)).Methods(http.MethodGet)
 
 	/* Access: ALL */

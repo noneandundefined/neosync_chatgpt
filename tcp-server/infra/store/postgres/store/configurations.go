@@ -67,6 +67,20 @@ func (s *ConfigurationStore) Update_ConfigurationByDeviceId(ctx context.Context,
 		return tcperrors.HandleSQLError(ctx, err)
 	}
 
+	if _, err = s.db.ExecContext(ctx, `
+		UPDATE configuration_history
+		SET origin = 'tracker'
+		WHERE origin = 'unknown' AND id = (
+			SELECT id
+			FROM configuration_history
+			WHERE device_id = $1 AND cfg_hash = $2
+			ORDER BY apply_at DESC, id DESC
+			LIMIT 1
+		)
+	`, conf.DeviceID, conf.CfgHash); err != nil {
+		logger.Warning("Update_ConfigurationByDeviceId device_id={%d}: Failed to mark configuration history origin: %s", conf.DeviceID, err.Error())
+	}
+
 	return nil
 }
 
@@ -106,18 +120,41 @@ func (s *ConfigurationStore) Update_ConfigurationByTx(ctx context.Context, tx *s
 }
 
 func (s *ConfigurationStore) Update_ConfigurationSyncStatusByDeviceId(ctx context.Context, deviceID uint64, status string, syncError *string) error {
-	query := `
-		UPDATE configurations
-		SET cfg_sync_status = $1, cfg_sync_error = $2
-		WHERE device_id = $3
-	`
-
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	_, err := s.db.ExecContext(ctx, query, status, syncError, deviceID)
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		logger.Error("Update_ConfigurationSyncStatusByDeviceId device_id={%d}: Failed to execute sql: %s", deviceID, err.Error())
+		return tcperrors.HandleSQLError(ctx, err)
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if _, err = tx.ExecContext(ctx, `
+		UPDATE configurations
+		SET cfg_sync_status = $1, cfg_sync_error = $2
+		WHERE device_id = $3
+	`, status, syncError, deviceID); err != nil {
+		logger.Error("Update_ConfigurationSyncStatusByDeviceId device_id={%d}: Failed to update configuration status: %s", deviceID, err.Error())
+		return tcperrors.HandleSQLError(ctx, err)
+	}
+
+	if _, err = tx.ExecContext(ctx, `
+		UPDATE configuration_history
+		SET cfg_sync_status = $1, cfg_sync_error = COALESCE($2, cfg_sync_error)
+		WHERE id = (
+			SELECT h.id
+			FROM configuration_history h
+			INNER JOIN configurations c ON c.device_id = h.device_id AND c.cfg_hash = h.cfg_hash
+			WHERE c.device_id = $3
+			ORDER BY h.apply_at DESC, h.id DESC
+			LIMIT 1
+		)
+	`, status, syncError, deviceID); err != nil {
+		logger.Error("Update_ConfigurationSyncStatusByDeviceId device_id={%d}: Failed to update configuration history status: %s", deviceID, err.Error())
+		return tcperrors.HandleSQLError(ctx, err)
+	}
+
+	if err = tx.Commit(); err != nil {
 		return tcperrors.HandleSQLError(ctx, err)
 	}
 

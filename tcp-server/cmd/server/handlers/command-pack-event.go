@@ -46,10 +46,17 @@ func (h *BasePackEventHandler) CommandPackEventJob(job JobCommandEvent) {
 		return
 	}
 
-	/* ADM write log */
-	_ = redis.WriteAdmLog(constants.EVENT_DEVICE_RECEVCOMMAND, *device.Imei, map[string]any{
-		"answer": packet,
-	})
+	session.Mu.Lock()
+	isTelemetry := session.InFlight != nil && session.InFlight.Cmd.Telemetry
+	session.Mu.Unlock()
+
+	// Periodic telemetry commands run on every sync and are intentionally not
+	// part of the support event log. User/manual command answers are retained.
+	if !isTelemetry {
+		_ = redis.WriteAdmLog(constants.EVENT_DEVICE_RECEVCOMMAND, *device.Imei, map[string]any{
+			"answer": packet,
+		})
+	}
 
 	/* Check resp. telemetry */
 	telemetrySave(imei, packet)

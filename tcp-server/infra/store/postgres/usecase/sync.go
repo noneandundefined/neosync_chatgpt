@@ -156,6 +156,10 @@ func (u *SyncUseCase) Synchronization(session *memory.SessionMemory, d *models.D
 		logger.Info("Synchronization imei={%s}: Pushing configuration to device db_hash={%d} device_hash={%d} db_last_mod={%d} device_last_mod={%d} bytes={%d}", imei, dbCfgHash, u.Device.CfgHash, dbLastMod, u.Device.LastModTime, len(d.CfgData))
 
 		if err := session.TransitData(imei, constants.ADM_RC_TYPE_SET_CFG, d.CfgData); err != nil {
+			errMsg := err.Error()
+			if statusErr := u.Store.Configurations.Update_ConfigurationSyncStatusByDeviceId(context.Background(), d.ID, constants.CFG_SYNC_STATUS_FAILED, &errMsg); statusErr != nil {
+				logger.Error("Synchronization imei={%s}: failed to persist SET_CFG delivery error: %s", imei, statusErr.Error())
+			}
 			return err
 		}
 

@@ -43,9 +43,25 @@ func WriteAdmLog(event string, imei string, payload any) error {
 
 	key := deviceStreamKey(imeiPrepare)
 
+	var syncStateKey string
+
+	// Stable SYNC packets arrive frequently and add almost no diagnostic value.
+	// Keep an immediate event when the payload changes, otherwise keep one
+	// heartbeat sample per 30 minutes.
+	if event == constants.EVENT_DEVICE_SYNC {
+		syncStateKey = fmt.Sprintf("adm:device:%s:sync:last", imeiPrepare)
+		lastPayload, getErr := client.Get(ctx, syncStateKey).Result()
+		if getErr == nil && lastPayload == payloadStr {
+			return nil
+		}
+		if getErr != nil && getErr != redis.Nil {
+			return getErr
+		}
+	}
+
 	_, err := client.XAdd(ctx, &redis.XAddArgs{
 		Stream: key,
-		MaxLen: 200,
+		MaxLen: 1000,
 		Approx: true,
 		Values: map[string]any{
 			"event":   event,
@@ -55,6 +71,12 @@ func WriteAdmLog(event string, imei string, payload any) error {
 	}).Result()
 	if err != nil {
 		return err
+	}
+
+	if syncStateKey != "" {
+		if err := client.Set(ctx, syncStateKey, payloadStr, 30*time.Minute).Err(); err != nil {
+			return err
+		}
 	}
 
 	return client.Expire(ctx, key, constants.Redis_LogTTL).Err()

@@ -299,6 +299,11 @@ func (h *Handler) ApplyConfigurationHandler_V1(w http.ResponseWriter, r *http.Re
 		logger.Error(message)
 		reason := message
 		createAnalyticRecord(admparser.GetCfgHash(newCfg), false, &reason)
+
+		if statusErr := h.Store.Configurations.Update_ConfigurationSyncStatusByDeviceId(ctx, device.ID, constants.CFG_SYNC_STATUS_FAILED, &reason); statusErr != nil {
+			logger.Error("ApplyConfigurationHandler_V1 req={%s}: Failed to persist configuration delivery error: %s", ctx.Value("XREQID").(string), statusErr.Error())
+		}
+
 		return httperr.New(tr.TErr("rabbitmq-publish-failed"), http.StatusConflict)
 	}
 

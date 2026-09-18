@@ -15,9 +15,12 @@ type Configuration struct {
 }
 
 type ConfigurationHistory struct {
-	ID       uint64    `json:"id" db:"id"`
-	ApplyAt  time.Time `json:"apply_at" db:"apply_at"`
-	DeviceID uint64    `json:"device_id" db:"device_id"`
-	CfgHash  uint32    `json:"cfg_hash" db:"cfg_hash"`
-	CfgData  []byte    `json:"cfg_data" db:"cfg_data"`
+	ID            uint64    `json:"id" db:"id"`
+	ApplyAt       time.Time `json:"apply_at" db:"apply_at"`
+	DeviceID      uint64    `json:"device_id" db:"device_id"`
+	CfgHash       uint32    `json:"cfg_hash" db:"cfg_hash"`
+	CfgData       []byte    `json:"-" db:"cfg_data"`
+	CfgSyncStatus *string   `json:"cfg_sync_status,omitempty" db:"cfg_sync_status"`
+	CfgSyncError  *string   `json:"cfg_sync_error,omitempty" db:"cfg_sync_error"`
+	Origin        string    `json:"origin" db:"origin"`
 }

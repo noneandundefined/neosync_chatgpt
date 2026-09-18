@@ -150,11 +150,11 @@ func (s *ConfigurationStore) Get_ReferenceConfigurationByModelAndUserUuid(ctx co
 
 func (s *ConfigurationStore) Get_ConfigurationHistoriesByDeviceId(ctx context.Context, id uint64) ([]models.ConfigurationHistory, error) {
 	query := `
-		SELECT id, apply_at, device_id, cfg_hash
+		SELECT id, apply_at, device_id, cfg_hash, cfg_data, cfg_sync_status, cfg_sync_error, origin
 		FROM configuration_history
 		WHERE device_id = $1
-		ORDER BY apply_at DESC
-		LIMIT 155
+		ORDER BY apply_at DESC, id DESC
+		LIMIT 101
 	`
 
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
@@ -167,6 +167,30 @@ func (s *ConfigurationStore) Get_ConfigurationHistoriesByDeviceId(ctx context.Co
 	}
 
 	return configurationHistories, nil
+}
+
+func (s *ConfigurationStore) Get_ConfigurationHistoryByIDAndDeviceId(ctx context.Context, historyID, deviceID uint64) (*models.ConfigurationHistory, error) {
+	query := `
+		SELECT id, apply_at, device_id, cfg_hash, cfg_data, cfg_sync_status, cfg_sync_error, origin
+		FROM configuration_history
+		WHERE id = $1 AND device_id = $2
+		LIMIT 1
+	`
+
+	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+	defer cancel()
+
+	history, err := pgqx.QueryRowContext[models.ConfigurationHistory](ctx, s.db, query, historyID, deviceID)
+	if err != nil {
+		if errors.Is(err, sql.ErrNoRows) {
+			return nil, nil
+		}
+
+		logger.Error("Get_ConfigurationHistoryByIDAndDeviceId req={%s}: Failed to exec sql: %s", ctx.Value("XREQID").(string), err.Error())
+		return nil, err
+	}
+
+	return history, nil
 }
 
 func (s *ConfigurationStore) Get_ConfigurationHistoryByCfgHash(ctx context.Context, cfgHash uint32) (*models.ConfigurationHistory, error) {
@@ -217,24 +241,59 @@ func (s *ConfigurationStore) Update_ConfigurationByDeviceId(ctx context.Context,
 		return httperr.Err_NotUpdated
 	}
 
+	cfgHash := admparser.GetCfgHash(cfg)
+	_, err = s.db.ExecContext(ctx, `
+		UPDATE configuration_history
+		SET origin = 'neosync'
+		WHERE origin = 'unknown' AND id = (
+			SELECT id
+			FROM configuration_history
+			WHERE device_id = $1 AND cfg_hash = $2
+			ORDER BY apply_at DESC, id DESC
+			LIMIT 1
+		)
+	`, id, cfgHash)
+	if err != nil {
+		logger.Warning("Update_ConfigurationByDeviceId req={%s}: Failed to mark configuration history origin: %s", ctx.Value("XREQID").(string), err.Error())
+	}
+
 	return nil
 }
 
 func (s *ConfigurationStore) Update_ConfigurationSyncStatusByDeviceId(ctx context.Context, deviceID uint64, status string, syncError *string) error {
-	query := `
-		UPDATE configurations
-		SET cfg_sync_status = $1, cfg_sync_error = $2
-		WHERE device_id = $3
-	`
-
 	ctx, cancel := context.WithTimeout(ctx, 10*time.Second)
 	defer cancel()
 
-	_, err := s.db.ExecContext(ctx, query, status, syncError, deviceID)
+	tx, err := s.db.BeginTx(ctx, nil)
 	if err != nil {
-		logger.Error("Update_ConfigurationSyncStatusByDeviceId req={%s}: Failed to exec sql: %s", ctx.Value("XREQID").(string), err.Error())
+		return err
+	}
+	defer func() { _ = tx.Rollback() }()
+
+	if _, err = tx.ExecContext(ctx, `
+		UPDATE configurations
+		SET cfg_sync_status = $1, cfg_sync_error = $2
+		WHERE device_id = $3
+	`, status, syncError, deviceID); err != nil {
+		logger.Error("Update_ConfigurationSyncStatusByDeviceId req={%s}: Failed to update configuration status: %s", ctx.Value("XREQID").(string), err.Error())
 		return err
 	}
 
-	return nil
+	if _, err = tx.ExecContext(ctx, `
+		UPDATE configuration_history
+		SET cfg_sync_status = $1, cfg_sync_error = COALESCE($2, cfg_sync_error)
+		WHERE id = (
+			SELECT h.id
+			FROM configuration_history h
+			INNER JOIN configurations c ON c.device_id = h.device_id AND c.cfg_hash = h.cfg_hash
+			WHERE c.device_id = $3
+			ORDER BY h.apply_at DESC, h.id DESC
+			LIMIT 1
+		)
+	`, status, syncError, deviceID); err != nil {
+		logger.Error("Update_ConfigurationSyncStatusByDeviceId req={%s}: Failed to update configuration history status: %s", ctx.Value("XREQID").(string), err.Error())
+		return err
+	}
+
+	return tx.Commit()
 }

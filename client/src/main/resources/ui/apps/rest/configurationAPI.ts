@@ -74,12 +74,24 @@ export interface ConfigurationDraftResponse {
 	timestamp: number;
 }
 
+export interface ConfigurationHistoryChange {
+	uid: number;
+	name: string;
+	section?: string;
+	old_value?: any;
+	new_value?: any;
+}
+
 export interface ConfigurationHistory {
 	id: number;
 	apply_at: string;
-	device_id: number;
 	cfg_hash: number;
-	cfg_data: Uint8Array;
+	cfg_sync_status?: string | null;
+	cfg_sync_error?: string | null;
+	origin: string;
+	change_count: number;
+	changes: ConfigurationHistoryChange[];
+	parse_error?: string | null;
 }
 
 /**
@@ -177,6 +189,25 @@ export const basicConfigurationGetDraft = async (imei: string, section: string, 
 export const basicConfigurationGetHistories = async (imei: string, signal?: AbortSignal): Promise<ConfigurationHistory[]> => {
 	const response = await axiosClient.get(`${apiPath}/${imei}/configuration/histories`, { signal });
 	return response.data.message;
+};
+
+export const basicConfigurationHistoryExport = async (imei: string, historyId: number) => {
+	const response = await axiosClient.get(`${apiPath}/${imei}/configuration/histories/${historyId}/export`, {
+		responseType: 'blob',
+	});
+
+	const disposition = response.headers['content-disposition'];
+	const match = disposition?.match(/filename="?([^"]+)"?/);
+	const filename = match?.[1] || `AdmConfiguration_${imei}_${historyId}.bin`;
+
+	const url = URL.createObjectURL(response.data);
+	const link = document.createElement('a');
+	link.href = url;
+	link.download = filename;
+	document.body.appendChild(link);
+	link.click();
+	link.remove();
+	URL.revokeObjectURL(url);
 };
 
 /**

@@ -106,6 +106,7 @@ type Storage struct {
 		Get_ReferenceConfigurationByModelAndUserUuid(ctx context.Context, model, userUuid string) (*models.Configuration, error)
 		Get_ColumnTableConfiguration(ctx context.Context) ([]models.DatabaseSchemaColumn, error)
 		Get_ConfigurationHistoriesByDeviceId(ctx context.Context, id uint64) ([]models.ConfigurationHistory, error)
+		Get_ConfigurationHistoryByIDAndDeviceId(ctx context.Context, historyID, deviceID uint64) (*models.ConfigurationHistory, error)
 		Get_ConfigurationHistoryByCfgHash(ctx context.Context, cfgHash uint32) (*models.ConfigurationHistory, error)
 		Get_ColumnTableConfigurationProf(ctx context.Context) ([]models.DatabaseSchemaColumn, error)
 

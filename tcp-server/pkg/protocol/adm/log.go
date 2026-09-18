@@ -12,17 +12,17 @@ func logIncomingPacket(ip, imei string, packet []byte) {
 		return
 	}
 
-	logger.Info("RX %s ip={%s} imei={%s} bytes={%d}", incomingPacketLabel(packet), ip, imei, size)
+	logger.Packet("RX %s ip={%s} imei={%s} bytes={%d}", incomingPacketLabel(packet), ip, imei, size)
 }
 
 func logOutgoingTransit(ip, imei string, type_p uint8, payload []byte, sent int) {
 	label, details := outgoingTransitLabel(type_p, payload)
 	if details != "" {
-		logger.Info("TX %s ip={%s} imei={%s} bytes={%d} %s", label, ip, imei, sent, details)
+		logger.Packet("TX %s ip={%s} imei={%s} bytes={%d} %s", label, ip, imei, sent, details)
 		return
 	}
 
-	logger.Info("TX %s ip={%s} imei={%s} bytes={%d}", label, ip, imei, sent)
+	logger.Packet("TX %s ip={%s} imei={%s} bytes={%d}", label, ip, imei, sent)
 }
 
 func incomingPacketLabel(packet []byte) string {

@@ -65,6 +65,9 @@ func (h *Handler) RegisterRoutes(router *mux.Router) {
 	).Methods(http.MethodPatch)
 
 	/* Access: ALL */
+	deviceRouter.Handle("/{imei:[0-9]{15}}/logs/export", httpx.ErrorHandler(h.ExportDeviceLogsHandler_V1)).Methods(http.MethodGet)
+
+	/* Access: ALL */
 	deviceRouter.Handle("/{imei:[0-9]{15}}/logs", httpx.ErrorHandler(h.GetDeviceLogsHandler_V1)).Methods(http.MethodGet)
 
 	/* Access: ALL */

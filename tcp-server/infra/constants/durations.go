@@ -2,7 +2,7 @@ package constants
 
 import "time"
 
-const Redis_LogTTL time.Duration = 48 * time.Hour
+const Redis_LogTTL time.Duration = 7 * 24 * time.Hour
 const Redis_CommandTTL time.Duration = 4 * time.Minute
 const Redis_DeviceUpdTTL time.Duration = 8 * time.Minute
 const Redis_DraftTTL time.Duration = 30 * time.Minute

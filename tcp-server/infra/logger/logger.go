@@ -7,6 +7,7 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+	"sync/atomic"
 	"time"
 )
 
@@ -14,7 +15,10 @@ var (
 	logDir   string
 	logQueue = make(chan logEntry, 10000)
 	timeYkb  *time.Location
-	dev      bool
+	dev            bool
+	packetTrace    bool
+	droppedLogs    atomic.Uint64
+	lastDropReport atomic.Int64
 )
 
 type logEntry struct {
@@ -30,14 +34,12 @@ func InitLogger() {
 	}
 
 	dev = os.Getenv("GO_ENV") == "DEV"
+	packetTrace = dev || strings.EqualFold(os.Getenv("LOG_PACKET_TRACE"), "true") || os.Getenv("LOG_PACKET_TRACE") == "1"
 
 	ensureLogDir()
 
-	/* Workers */
-	for i := 0; i < 4; i++ {
-		go logWorker()
-	}
-
+	/* A single writer preserves log order and avoids concurrent writes to the same file. */
+	go logWorker()
 	go compressWorker()
 }
 
@@ -109,8 +111,29 @@ func logWithLevel(level, filename, format string, args ...any) {
 	select {
 	case logQueue <- logEntry{filename: filename, message: logMessage}:
 	default:
-		fmt.Println("Log queue full, message dropped:", logMessage)
+		reportDroppedLog()
 	}
+}
+
+func reportDroppedLog() {
+	droppedLogs.Add(1)
+
+	now := time.Now().Unix()
+	last := lastDropReport.Load()
+	if now-last < 5 || !lastDropReport.CompareAndSwap(last, now) {
+		return
+	}
+
+	dropped := droppedLogs.Swap(0)
+	fmt.Printf("Log queue full: dropped %d messages in the last interval\n", dropped)
+}
+
+func Packet(format string, args ...any) {
+	if !packetTrace {
+		return
+	}
+
+	logWithLevel("PACKET", "packets.log", format, args...)
 }
 
 func Info(format string, args ...any) {
