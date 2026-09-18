@@ -67,8 +67,24 @@ function CompactTable<T>({
 	const setSearch = persistSearchInUrl ? setUrlSearch : setLocalSearchApplied;
 
 	const [columnSort] = useState<ColumnSortState>(() => {
-		const saved = localStorage.getItem(CACHEKEYs_TABLE_COLUMN_SORT(tableKey));
-		return saved ? JSON.parse(saved) : { key: 'created_at', direction: 'desc' };
+		const fallback: ColumnSortState = { key: 'created_at', direction: 'desc' };
+		const cacheKey = CACHEKEYs_TABLE_COLUMN_SORT(tableKey);
+		const saved = localStorage.getItem(cacheKey);
+
+		if (!saved) {
+			return fallback;
+		}
+
+		try {
+			const parsed = JSON.parse(saved) as Partial<ColumnSortState>;
+			if (typeof parsed.key === 'string' && (parsed.direction === 'asc' || parsed.direction === 'desc')) {
+				return parsed as ColumnSortState;
+			}
+		} catch {
+			localStorage.removeItem(cacheKey);
+		}
+
+		return fallback;
 	});
 
 	useEffect(() => {
