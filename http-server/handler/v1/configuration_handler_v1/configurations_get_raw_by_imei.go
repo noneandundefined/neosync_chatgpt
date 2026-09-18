@@ -51,6 +51,9 @@ func (h *Handler) GetConfigurationRawByImeiHandler_V1(w http.ResponseWriter, r *
 	if err != nil {
 		return httperr.Db(ctx, err)
 	}
+	if configuration == nil || configuration.CfgData == nil {
+		return httperr.NotFound(tr.TErr("config-fetch-error"))
+	}
 
 	configurationRawModel := ConfigurationRaw{
 		DeviceImei: imei,
