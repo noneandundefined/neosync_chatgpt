@@ -61,7 +61,20 @@ export const runGuardedAction = async <T>(actionKey: string, action: () => Promi
 		return await action();
 	} finally {
 		inFlightActions.delete(actionKey);
-		cooldownUntil.set(actionKey, Date.now() + cooldownMs);
+
+		if (cooldownMs > 0) {
+			const expiresAt = Date.now() + cooldownMs;
+			cooldownUntil.set(actionKey, expiresAt);
+
+			setTimeout(() => {
+				if (cooldownUntil.get(actionKey) === expiresAt) {
+					cooldownUntil.delete(actionKey);
+				}
+			}, cooldownMs);
+		} else {
+			cooldownUntil.delete(actionKey);
+		}
+
 		clearIdempotencyKey(actionKey);
 	}
 };
