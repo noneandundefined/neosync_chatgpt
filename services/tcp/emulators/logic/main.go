@@ -32,8 +32,8 @@ type Emulator struct {
 
 func main() {
 	var (
-		host         = flag.String("host", "127.0.0.1", "NeoSync tcp-server host")
-		port         = flag.Int("port", 12346, "NeoSync tcp-server port")
+		host         = flag.String("host", "127.0.0.1", "NeoSync TCP server host")
+		port         = flag.Int("port", 12346, "NeoSync TCP server port")
 		imei         = flag.String("imei", "862843047104450", "device IMEI")
 		password     = flag.String("password", "0", "device password")
 		stateDir     = flag.String("state-dir", "./emulator-state", "directory for state.json and config.bin")
