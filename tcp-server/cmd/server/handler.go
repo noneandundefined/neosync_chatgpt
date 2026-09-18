@@ -36,7 +36,7 @@ func (tcp *tcpServer) HandleAdmConn(conn net.Conn, buffer []byte, protocol proto
 		if imei != "" {
 			_ = redis.WriteAdmLog(constants.EVENT_DEVICE_DISCONN, imei, nil)
 
-			tcp.session.RemoveDeviceSession(imei)
+			tcp.session.RemoveDeviceSessionForDevice(imei, device)
 			tcp.cache.Delete(fmt.Sprintf("sync:%s", imei))
 		}
 
