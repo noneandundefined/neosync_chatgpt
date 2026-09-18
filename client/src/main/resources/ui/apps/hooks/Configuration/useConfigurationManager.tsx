@@ -43,9 +43,11 @@ const useConfigurationManager = (imei: string, section: string) => {
 		setManager(null);
 
 		const eventSource = basicConfigurationSectionParsedSSEGet(imei, section, {
-			onOpen: (message) => setSseMessage(message),
+			onOpen: (message) => {
+				if (active) setSseMessage(message);
+			},
 			onProgress: (message) => {
-				setSseMessage(message);
+				if (active) setSseMessage(message);
 			},
 			onConfiguration: async (baseConfig) => {
 				try {
@@ -55,26 +57,28 @@ const useConfigurationManager = (imei: string, section: string) => {
 						hasFinishedRef.current = true;
 					}
 				} catch (draftError: any) {
-					if (axios.isCancel(draftError)) return;
+					if (axios.isCancel(draftError) || !active) return;
 					setError(draftError?.response?.data?.message || t('message.configuration-error'));
 					hasFinishedRef.current = true;
 				} finally {
-					setLoading(false);
+					if (active) setLoading(false);
 				}
 			},
 			onError: (message) => {
+				if (!active) return;
 				setSseConnectionError(message);
 				setError(message);
 				setLoading(false);
 				hasFinishedRef.current = true;
 			},
 			onDone: (message) => {
+				if (!active) return;
 				setSseMessage(message);
 				setLoading(false);
 				hasFinishedRef.current = true;
 			},
 			onClose: () => {
-				if (active && loading && !hasFinishedRef.current) {
+				if (active && !hasFinishedRef.current) {
 					setSseConnectionError(t('message.sse-connection-unexpected-close'));
 					setError(t('message.sse-connection-unexpected-close'));
 				}
@@ -91,7 +95,7 @@ const useConfigurationManager = (imei: string, section: string) => {
 				eventSourceRef.current = null;
 			}
 		};
-	}, [imei, section]);
+	}, [imei, section, t]);
 
 	return { manager, loading, error, sseMessage, sseConnectionError };
 };
