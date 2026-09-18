@@ -105,6 +105,32 @@ func (sm *SessionMemory) RemoveDeviceSession(imei string) {
 	sm.shutdownSession(v.(*types.TCPSession), imeiPrepare, true)
 }
 
+// RemoveDeviceSessionForDevice removes a session only when it still belongs to
+// the connection that is being closed. A stale connection must not delete a
+// newer session created for the same IMEI.
+func (sm *SessionMemory) RemoveDeviceSessionForDevice(imei string, device *adm.ADMDevice) {
+	if device == nil {
+		return
+	}
+
+	imeiPrepare := util.PrepareImei(imei)
+	v, ok := sm.sessions.Load(imeiPrepare)
+	if !ok {
+		return
+	}
+
+	session, ok := v.(*types.TCPSession)
+	if !ok || session.Device != device {
+		return
+	}
+
+	if !sm.sessions.CompareAndDelete(imeiPrepare, session) {
+		return
+	}
+
+	sm.shutdownSession(session, imeiPrepare, true)
+}
+
 func (sm *SessionMemory) shutdownSession(session *types.TCPSession, imeiPrepare string, updateDeviceStatus bool) {
 	session.Mu.Lock()
 
@@ -201,8 +227,12 @@ func (sm *SessionMemory) NewBundleSession(rabbitmqTransit types.RabbitMQ_Transit
 		session.Mu.Unlock()
 
 		sm.requestMap.Store(rabbitmqTransit.RequestID, imeiPrepare)
+
 		/* Transit data to terminal */
-		sm.TransitData(rabbitmqTransit.Imei, rabbitmqTransit.Type, rabbitmqTransit.Data)
+		if err := sm.TransitData(rabbitmqTransit.Imei, rabbitmqTransit.Type, rabbitmqTransit.Data); err != nil {
+			sm.RemoveRequestIdSession(rabbitmqTransit.RequestID)
+			return err
+		}
 
 		/* Time-out request id */
 		time.AfterFunc(constants.RabbitMQ_TimeoutRead, func() {
@@ -255,7 +285,7 @@ func (sm *SessionMemory) EnqueueCommand(cmd types.RabbitMQ_TransitBinary) {
 	session.Busy = true
 	session.Mu.Unlock()
 
-	go sm.runQueue(session)
+	go sm.runQueue(session, imeiPrepare)
 }
 
 func (sm *SessionMemory) ScheduleTelemetryCommands(imei string, commands []string) {
@@ -376,14 +406,13 @@ func (sm *SessionMemory) prepareCommandExecution(ctx context.Context, cmd *types
 	return nil
 }
 
-func (sm *SessionMemory) runQueue(session *types.TCPSession) {
+func (sm *SessionMemory) runQueue(session *types.TCPSession, imeiPrepare string) {
 	timeout := constants.RabbitMQ_TimeoutRead
 
 	for {
-		if session.Device.Imei != nil {
-			if _, ok := sm.sessions.Load(util.PrepareImei(*session.Device.Imei)); !ok {
-				return
-			}
+		current, ok := sm.sessions.Load(imeiPrepare)
+		if !ok || current != session {
+			return
 		}
 
 		session.Mu.Lock()
@@ -418,8 +447,9 @@ func (sm *SessionMemory) runQueue(session *types.TCPSession) {
 			}
 
 			session.Mu.Lock()
-			session.InFlight = nil
-			close(inFlight.AnswerCh)
+			if session.InFlight == inFlight {
+				session.InFlight = nil
+			}
 			session.Mu.Unlock()
 			continue
 		}
@@ -457,8 +487,9 @@ func (sm *SessionMemory) runQueue(session *types.TCPSession) {
 		}
 
 		session.Mu.Lock()
-		session.InFlight = nil
-		close(inFlight.AnswerCh)
+		if session.InFlight == inFlight {
+			session.InFlight = nil
+		}
 		session.Mu.Unlock()
 	}
 }
