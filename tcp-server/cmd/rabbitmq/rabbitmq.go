@@ -40,6 +40,7 @@ func NewRabbitMQ(amqpURL string) (*RabbitMQ, error) {
 
 	/* Initial channels */
 	if err := r.initChannels(); err != nil {
+		_ = conn.Close()
 		return nil, err
 	}
 
@@ -63,7 +64,12 @@ func (r *RabbitMQ) handleReconnect() {
 
 		r.mutex.Lock()
 		conn := r.conn
+		closed := r.closed
 		r.mutex.Unlock()
+
+		if closed {
+			return
+		}
 
 		if conn == nil {
 			time.Sleep(2 * time.Second)
