@@ -15,13 +15,19 @@ func (h *BasePackEventHandler) ErrorPackEventHandler(device *adm.ADMDevice, rece
 	}
 
 	session, exists := h.Session.GetDeviceSession(*device.Imei)
-	if session == nil || !exists {
+	if session == nil || !exists || session.Device != device {
 		return
 	}
 
-	requestID := session.RequestId
-	if requestID == nil {
-		logger.Warning("ConfigurationPackEventHandler ip={%s} imei={%s}: RequestId not found connected client", device.Conn.RemoteAddr().(*net.TCPAddr).IP, *device.Imei)
+	session.Mu.Lock()
+	requestID := ""
+	if session.RequestId != nil {
+		requestID = *session.RequestId
+	}
+	session.Mu.Unlock()
+
+	if requestID == "" {
+		logger.Warning("ErrorPackEventHandler ip={%s} imei={%s}: RequestId not found connected client", device.Conn.RemoteAddr().(*net.TCPAddr).IP, *device.Imei)
 		return
 	}
 
@@ -33,7 +39,7 @@ func (h *BasePackEventHandler) ErrorPackEventHandler(device *adm.ADMDevice, rece
 	/* RabbitMQ */
 	rabbitmqTransit := types.RabbitMQ_TransitBinary{
 		Type:      0x00,
-		RequestID: *requestID,
+		RequestID: requestID,
 		Imei:      *device.Imei,
 		StatCode:  http.StatusBadRequest,
 		Data:      []byte(received.(error).Error()),
@@ -42,5 +48,5 @@ func (h *BasePackEventHandler) ErrorPackEventHandler(device *adm.ADMDevice, rece
 	if err := h.RMQ.SendToRabbitAsync(rabbitmqTransit); err != nil {
 		logger.Error("ErrorPackEventHandler ip={%s}: %s", device.Conn.RemoteAddr().(*net.TCPAddr).IP, err.Error())
 	}
-	h.Session.RemoveRequestIdSession(*requestID)
+	h.Session.RemoveRequestIdSession(requestID)
 }
