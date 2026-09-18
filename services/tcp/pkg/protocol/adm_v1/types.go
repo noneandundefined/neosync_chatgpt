@@ -2,7 +2,7 @@ package adm_v1
 
 import (
 	"neomatica/neosync-tcp/infra/store/postgres/store"
-	"neomatica/neosync-tcp/infra/store/postgres/usecase"
+	"neomatica/neosync-tcp/internal/usecase"
 )
 
 type ADM_V1 struct {
