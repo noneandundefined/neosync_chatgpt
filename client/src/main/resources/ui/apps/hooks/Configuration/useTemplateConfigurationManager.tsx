@@ -62,8 +62,12 @@ const useTemplateConfigurationManager = (section: string, enabled = true, templa
 		setManager(null);
 
 		const callbacks = {
-			onOpen: (message?: string) => setSseMessage(message ?? null),
-			onProgress: (message?: string) => setSseMessage(message ?? null),
+			onOpen: (message?: string) => {
+				if (active) setSseMessage(message ?? null);
+			},
+			onProgress: (message?: string) => {
+				if (active) setSseMessage(message ?? null);
+			},
 			onConfiguration: (baseConfig: ConfigurationTemplateSectionParsedResponse) => {
 				if (!active) return;
 
@@ -74,18 +78,20 @@ const useTemplateConfigurationManager = (section: string, enabled = true, templa
 				setLoading(false);
 			},
 			onError: (message?: string) => {
+				if (!active) return;
 				setSseConnectionError(message ?? t('message.error-get-configuration'));
 				setError(message ?? t('message.error-get-configuration'));
 				setLoading(false);
 				hasFinishedRef.current = true;
 			},
 			onDone: (message?: string) => {
+				if (!active) return;
 				setSseMessage(message ?? null);
 				setLoading(false);
 				hasFinishedRef.current = true;
 			},
 			onClose: () => {
-				if (active && loading && !hasFinishedRef.current) {
+				if (active && !hasFinishedRef.current) {
 					setSseConnectionError(t('message.sse-connection-unexpected-close'));
 					setError(t('message.sse-connection-unexpected-close'));
 				}
