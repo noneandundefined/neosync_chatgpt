@@ -14,7 +14,7 @@ NC='\033[0m'
 
 HOME="$(git rev-parse --show-toplevel)"
 
-FILE_CONFIG="client/src/main/resources/ui/apps/.config/config.client.ts"
+FILE_CONFIG="apps/web/apps/.config/config.client.ts"
 NGINX_HTML_DIR='/usr/share/nginx/html/neosync'
 DIST_DIR='dist'
 
@@ -32,7 +32,7 @@ else
 fi
 
 echo -e "${BLUE}Сборка клиента...${NC}"
-cd "$HOME/client/src/main/resources/ui"
+cd "$HOME/apps/web"
 pnpm i || { echo >&2 "Ошибка установки зависимостей клиента."; exit 1; }
 pnpm build || { echo >&2 "Ошибка сборки клиента."; exit 1; }
 

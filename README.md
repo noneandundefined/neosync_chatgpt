@@ -1,88 +1,81 @@
-# Neosync
+# NeoSync
 
-Конфигуратор удаленной настройки терминала от компании [Neomatica](https://neomatica.com/).
+NeoSync — монорепозиторий сервиса удалённой настройки терминалов Neomatica.
 
-## Разработка Neosync
+## С чего начать
 
-- [Neosync клиент](./client/src/docs/README.md)
-- [Neosync HTTP сервер](./http-server/README.md)
-- [Деплой Neosync сервиса](./scripts/README.md)
+Если вы впервые открыли проект, сначала прочитайте [архитектуру](./docs/architecture.md).
 
-## Быстрый запуск Neosync
+```text
+apps/
+  web/              React/Vite приложение
 
-Для запуска сервиса Neosync на локальной машине потребуется - `Docker`.
+services/
+  http/             REST API
+  tcp/              TCP-сервер терминалов
 
-> Все 'environment' в docker-compose.yml ТЕСТОВЫЕ, они не будут использоваться в PRE/PRODUCTION.
+deploy/
+  nginx/            nginx-конфигурация
+  postgres/         PostgreSQL-конфигурация
+  systemd/          production systemd units
 
-1. Сервис Neosync требует подключение к СУБД PostgreSQL. Если PostgreSQL нету на локальной машине, измените строку подключения в `docker-compose.yml` во ВСЕХ местах:
-
-было:
-
-```bash
-DB_ADDR=postgres://postgres:password@host.docker.internal:5432/neosync?sslmode=disable
+docs/               документация
+scripts/            эксплуатационные/deploy-скрипты
+docker-compose.yml  локальное окружение
 ```
 
-стало:
+Главное правило backend: transport вызывает `internal/usecase`, а внешние системы находятся в `infra`.
+
+## Быстрый запуск
 
 ```bash
-DB_ADDR=postgres://postgres:password@db:5432/neosync?sslmode=disable
+cp services/http/.env.example services/http/.env
+cp services/tcp/.env.example services/tcp/.env
+cp apps/web/.env.example apps/web/.env
+
+docker compose up --build
 ```
 
-2. Запуск через docker-compose
+После запуска:
+- Web: http://localhost:5173
+- HTTP API: http://localhost:8080
+- TCP: localhost:12346
+- RabbitMQ UI: http://localhost:15672
+
+## Разработка
 
 ```bash
-docker compose -f docker-compose.yml up --build
+cd services/http && make test
+cd services/tcp && make test
+cd apps/web && pnpm install && pnpm build
 ```
 
-3. Проверка сервиса
-
-- После запуска можно перейти на `localhost:5173` - откроется сервис Neosync.
-- Для подключения терминалов/эмуляторов используйте - localhost:12346.
-
-## Деплой сервиса
-
-1. Подключение к серверу по SSH.
+Миграции принадлежат HTTP-сервису и лежат в `services/http/migrations`:
 
 ```bash
-ssh -p <port> <user>@<ip>
+cd services/http
+make migrate-up
 ```
 
-2. Чтобы использовать исходный код, потребуется сервис `Tailscale`.
+## Где добавлять код
 
-Установка Tailscale на Linux:
+- REST endpoint → `services/http/handler/v1/<domain>_handler_v1`
+- бизнес-операция → `services/http/internal/usecase` или `services/tcp/internal/usecase`
+- PostgreSQL → `services/*/infra/store/postgres`
+- Redis → `services/*/infra/store/redis`
+- RabbitMQ → `services/*/infra/messaging/rabbitmq`
+- TCP protocol → `services/tcp/pkg/protocol`
+- frontend page → `apps/web/apps/pages`
+- frontend API client → `apps/web/apps/rest`
+- production config → `deploy`
 
-```bash
-curl -fsSL https://tailscale.com/install.sh | sh
-```
+## Деплой
 
-Для настройки Tailscale и авторизации устройства:
-
-```bash
-tailscale up
-```
-
-3. Клонирование репозитория.
-
-```bash
-git clone ssh://git@<ip>:222/neomatica/neosync.git
-```
-
-> После клонирования репозитория, добавьте переменные окружения: `.env.production` OR `.env.dev`.
-
-4. Запуск сервиса Neosync.
+CI вызывает скрипты из `scripts/`. Ручной deploy:
 
 ```bash
-cd ./neosync
-
-git stash
-git checkout main
-git pull origin main
-
-cd ./scripts
-
+cd scripts
 bash pre_deploy
 bash systemd
 bash setup_nginx
-
-bash set_technical_work false
 ```

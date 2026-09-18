@@ -21,9 +21,9 @@ GO_VERSION="1.23.0"
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 
 HOME="$(git rev-parse --show-toplevel)"
-FILE_CONFIG="client/src/main/resources/ui/apps/.config/config.client.ts"
-FILE_GO_HTTP="http-server/cmd/server/main.go"
-FILE_GO_TCP="tcp-server/cmd/server/main.go"
+FILE_CONFIG="apps/web/apps/.config/config.client.ts"
+FILE_GO_HTTP="services/http/cmd/server/main.go"
+FILE_GO_TCP="services/tcp/cmd/server/main.go"
 
 if [[ "$BRANCH" == "main" ]]; then
     ENV_FILE=".env.production"
@@ -41,28 +41,28 @@ else
     RELEASE="dev"
 fi
 
-cd "$HOME/http-server"
+cd "$HOME/services/http"
 for file in $(find . -type f -name "*.go"); do
     if grep -q "fmt.Println" "$file" || grep -q "fmt.Print" "$file"; then
         echo -e "${RED}Предупреждение: Найдено использование fmt.Println или fmt.Print в файле: $file${NC}"
     fi
 done
 
-cd "$HOME/tcp-server"
+cd "$HOME/services/tcp"
 for file in $(find . -type f -name "*.go"); do
     if grep -q "fmt.Println" "$file" || grep -q "fmt.Print" "$file"; then
         echo -e "${RED}Предупреждение: Найдено использование fmt.Println или fmt.Print в файле: $file${NC}"
     fi
 done
 
-cd "$HOME/client/src/main/resources/ui"
+cd "$HOME/apps/web"
 for file in $(find . -type f \( -name "*.ts" -o -name "*.tsx" \) -not -path "*/node_modules/*"); do
     if grep -q "console.log" "$file"; then
         echo -e "${RED}Предупреждение: Найдено использование console.log в файле: $file${NC}"
     fi
 done
 
-cd "$HOME/client/src/main/resources/ui"
+cd "$HOME/apps/web"
 # Используем sed для замены release
 echo -e "${BLUE}Замена release${NC}"
 if sed -i "s/release: 'dev'/release: '${RELEASE}'/" "$HOME/$FILE_CONFIG"; then
@@ -72,7 +72,7 @@ else
     exit 1
 fi
 
-cd "$HOME/http-server"
+cd "$HOME/services/http"
 if sed -i.bak "s/godotenv.Load()/godotenv.Load(\"$ENV_FILE\")/" "$HOME/$FILE_GO_HTTP"; then
     echo -e "Значение переменной Load() заменено в $FILE_GO_HTTP"
 else
@@ -80,7 +80,7 @@ else
     exit 1
 fi
 
-cd "$HOME/tcp-server"
+cd "$HOME/services/tcp"
 if sed -i.bak "s/godotenv.Load()/godotenv.Load(\"$ENV_FILE\")/" "$HOME/$FILE_GO_TCP"; then
     echo -e "Значение переменной Load() заменено в $FILE_GO_TCP"
 else
@@ -88,34 +88,34 @@ else
     exit 1
 fi
 
-cd "$HOME/http-server"
+cd "$HOME/services/http"
 make build-linux
-size=$(du -sm "$HOME/http-server/bin" | cut -f1)
+size=$(du -sm "$HOME/services/http/bin" | cut -f1)
 if [ "$size" -gt 555 ]; then
-    echo -e "${RED}Ошибка: Размер папки или файла больше 555 МБ: 'http-server/bin' (${size} MB)${NC}"
+    echo -e "${RED}Ошибка: Размер папки или файла больше 555 МБ: 'services/http/bin' (${size} MB)${NC}"
     exit 1
 elif [ "$size" -gt 200 ]; then
-    echo -e "${YELLOW}Предупреждение: Размер папки или файла больше 200 МБ: 'http-server/bin' (${size} MB)${NC}"
+    echo -e "${YELLOW}Предупреждение: Размер папки или файла больше 200 МБ: 'services/http/bin' (${size} MB)${NC}"
 else
-    echo -e "${GREEN}Размер папки или файла в пределах нормы: 'http-server/bin' (${size} MB)${NC}"
+    echo -e "${GREEN}Размер папки или файла в пределах нормы: 'services/http/bin' (${size} MB)${NC}"
 fi
 
-cd "$HOME/tcp-server"
+cd "$HOME/services/tcp"
 make build-linux
-size=$(du -sm "$HOME/tcp-server/bin" | cut -f1)
+size=$(du -sm "$HOME/services/tcp/bin" | cut -f1)
 if [ "$size" -gt 555 ]; then
-    echo -e "${RED}Ошибка: Размер папки или файла больше 555 МБ: 'tcp-server/bin' (${size} MB)${NC}"
+    echo -e "${RED}Ошибка: Размер папки или файла больше 555 МБ: 'services/tcp/bin' (${size} MB)${NC}"
     exit 1
 elif [ "$size" -gt 200 ]; then
-    echo -e "${YELLOW}Предупреждение: Размер папки или файла больше 200 МБ: 'tcp-server/bin' (${size} MB)${NC}"
+    echo -e "${YELLOW}Предупреждение: Размер папки или файла больше 200 МБ: 'services/tcp/bin' (${size} MB)${NC}"
 else
-    echo -e "${GREEN}Размер папки или файла в пределах нормы: 'tcp-server/bin' (${size} MB)${NC}"
+    echo -e "${GREEN}Размер папки или файла в пределах нормы: 'services/tcp/bin' (${size} MB)${NC}"
 fi
 
-cd "$HOME/client/src/main/resources/ui"
+cd "$HOME/apps/web"
 pnpm i
 pnpm build
-size=$(du -sm "$HOME/client/src/main/resources/ui/dist" | cut -f1)
+size=$(du -sm "$HOME/apps/web/dist" | cut -f1)
 if [ "$size" -gt 555 ]; then
     echo -e "${RED}Ошибка: Размер папки или файла больше 555 МБ: 'client/dist' (${size} MB)${NC}"
     exit 1

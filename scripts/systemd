@@ -11,8 +11,8 @@ NC='\033[0m'
 HOME="$(git rev-parse --show-toplevel)"
 GO_VERSION="1.23.0"
 
-sudo cp "$HOME/.systemd/http-systemd-amd64.service" /etc/systemd/system/
-sudo cp "$HOME/.systemd/tcp-systemd-amd64.service" /etc/systemd/system/
+sudo cp "$HOME/deploy/systemd/http-systemd-amd64.service" /etc/systemd/system/
+sudo cp "$HOME/deploy/systemd/tcp-systemd-amd64.service" /etc/systemd/system/
 
 sudo systemctl stop http-systemd-amd64.service
 sudo systemctl stop tcp-systemd-amd64.service

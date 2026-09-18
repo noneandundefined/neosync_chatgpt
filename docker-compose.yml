@@ -82,18 +82,18 @@ services:
                 max-size: '10m'
                 max-file: '3'
 
-    client:
+    web:
         build:
-            context: client/src/main/resources/ui
+            context: apps/web
             dockerfile: Dockerfile
         restart: unless-stopped
         env_file:
-            - ./client/src/main/resources/ui/.env
+            - ./apps/web/.env
         ports:
             - '5173:5173'
         volumes:
-            - ./client/src/main/resources/ui:/app
-            - client_node_modules:/app/node_modules
+            - ./apps/web:/app
+            - web_node_modules:/app/node_modules
         depends_on:
             db:
                 condition: service_healthy
@@ -109,18 +109,18 @@ services:
                 max-size: '10m'
                 max-file: '3'
 
-    http_server:
+    http:
         restart: always
         build:
-            context: http-server
+            context: services/http
             dockerfile: Dockerfile
         env_file:
-            - ./http-server/.env
+            - ./services/http/.env
         command: air
         ports:
             - '8080:8080'
         volumes:
-            - ./http-server:/app
+            - ./services/http:/app
         depends_on:
             db:
                 condition: service_healthy
@@ -136,18 +136,18 @@ services:
                 max-size: '10m'
                 max-file: '3'
 
-    tcp_server:
+    tcp:
         restart: always
         build:
-            context: tcp-server
+            context: services/tcp
             dockerfile: Dockerfile
         env_file:
-            - ./tcp-server/.env
+            - ./services/tcp/.env
         command: air
         ports:
             - '12346:12346'
         volumes:
-            - ./tcp-server:/app
+            - ./services/tcp:/app
         depends_on:
             db:
                 condition: service_healthy
@@ -167,4 +167,4 @@ volumes:
     postgres_data:
     redis_data:
     rabbitmq_data:
-    client_node_modules:
+    web_node_modules:
