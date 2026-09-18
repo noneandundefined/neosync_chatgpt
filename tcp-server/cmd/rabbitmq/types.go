@@ -18,5 +18,6 @@ type RabbitMQ struct {
 
 	amqpURL string
 	isReady bool
+	closed  bool
 	mutex   sync.Mutex
 }
