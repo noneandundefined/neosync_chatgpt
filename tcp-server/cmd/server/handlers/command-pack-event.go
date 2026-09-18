@@ -42,7 +42,7 @@ func (h *BasePackEventHandler) CommandPackEventJob(job JobCommandEvent) {
 
 	/* Get session by Imei */
 	session, exists := h.Session.GetDeviceSession(*device.Imei)
-	if session == nil || !exists {
+	if session == nil || !exists || session.Device != device {
 		return
 	}
 
