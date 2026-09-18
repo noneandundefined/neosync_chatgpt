@@ -102,7 +102,7 @@ createRoot(document.getElementById('root')!).render(
 						<ModalMoveProvider>
 							<Root />
 
-							<ReactQueryDevtools initialIsOpen={true} />
+							{import.meta.env.DEV && <ReactQueryDevtools initialIsOpen={false} />}
 						</ModalMoveProvider>
 					</ModalProvider>
 				</QueryClientProvider>
