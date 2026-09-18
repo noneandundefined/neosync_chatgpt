@@ -3,7 +3,7 @@
 React + TypeScript + Vite клиент NeoSync.
 
 ```text
-apps/
+src/
 ├── components/
 ├── constants/
 ├── context/

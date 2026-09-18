@@ -65,8 +65,8 @@ make migrate-up
 - Redis → `services/*/infra/store/redis`
 - RabbitMQ → `services/*/infra/messaging/rabbitmq`
 - TCP protocol → `services/tcp/pkg/protocol`
-- frontend page → `apps/web/apps/pages`
-- frontend API client → `apps/web/apps/rest`
+- frontend page → `apps/web/src/pages`
+- frontend API client → `apps/web/src/rest`
 - production config → `deploy`
 
 ## Деплой

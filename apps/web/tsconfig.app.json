@@ -20,8 +20,8 @@
 		"noFallthroughCasesInSwitch": true,
 		"noUncheckedSideEffectImports": true,
 		"paths": {
-			"@/*": ["./apps/*"]
+			"@/*": ["./src/*"]
 		}
 	},
-	"include": ["apps", "apps/components/@icons/chevron-left.tsx", "apps/.config"]
+	"include": ["src"]
 }
