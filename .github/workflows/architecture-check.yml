@@ -16,6 +16,14 @@ jobs:
         with:
           go-version: '1.23.0'
 
+      - name: Reject stale architecture paths
+        run: |
+          if grep -R -n -E 'client/src/main/resources/ui|http-server|tcp-server|/cmd/rabbitmq|store/postgres/usecase' \
+            --exclude-dir=.git --exclude='architecture-check.yml' .; then
+            echo "stale architecture path found"
+            exit 1
+          fi
+
       - name: Test HTTP service
         working-directory: services/http
         run: go test ./...
