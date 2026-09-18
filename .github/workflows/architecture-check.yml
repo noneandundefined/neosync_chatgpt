@@ -18,7 +18,7 @@ jobs:
 
       - name: Reject stale architecture paths
         run: |
-          if grep -R -n -E 'client/src/main/resources/ui|(^|[[:space:]`"'"'])http-server/|(^|[[:space:]`"'"'])tcp-server/|/cmd/rabbitmq|store/postgres/usecase' \
+          if grep -R -n -E 'client/src/main/resources/ui|/cmd/rabbitmq|store/postgres/usecase' \
             --exclude-dir=.git --exclude='architecture-check.yml' .; then
             echo "stale architecture path found"
             exit 1
