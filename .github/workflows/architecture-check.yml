@@ -1,9 +1,11 @@
-name: Architecture refactor check
+name: Architecture check
 
 on:
+  pull_request:
   push:
     branches:
-      - refactor/repository-architecture
+      - main
+      - preprod
 
 jobs:
   verify:
