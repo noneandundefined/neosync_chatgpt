@@ -8,6 +8,7 @@ import (
 type InFlightCommand struct {
 	Cmd      RabbitMQ_TransitBinary
 	AnswerCh chan string
+	DoneCh   chan struct{}
 }
 
 type TCPSession struct {
