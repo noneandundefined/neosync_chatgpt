@@ -21,7 +21,7 @@ func (h *Handler) GetConfigurationTelemetryHandler_V1(w http.ResponseWriter, r *
 
 	/* Check access */
 	if !authToken.User.Has(constants.AccessConfigurationRead) {
-		return nil
+		return httperr.Forbidden(tr.TErr("config-access-restricted"))
 	}
 
 	imei := mux.Vars(r)["imei"]
@@ -63,7 +63,7 @@ func (h *Handler) RebootConfigurationTelemetryHandler_V1(w http.ResponseWriter, 
 
 	/* Check access */
 	if !authToken.User.Has(constants.AccessConfigurationRead) {
-		return nil
+		return httperr.Forbidden(tr.TErr("config-access-restricted"))
 	}
 
 	imei := mux.Vars(r)["imei"]
