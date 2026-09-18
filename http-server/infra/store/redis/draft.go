@@ -46,6 +46,10 @@ func SaveOrUpdateDraft(uuid, imei, section string, newDraft ConfigurationDraftIn
 		return err
 	}
 
+	if existing.Changes == nil {
+		existing.Changes = make(map[string]any)
+	}
+
 	for k, v := range newDraft.Changes {
 		existing.Changes[k] = v
 	}
@@ -88,10 +92,26 @@ func GetDraft(uuid, imei, section string) (*ConfigurationDraftInsert, error) {
 }
 
 func HasDraft(uuid, imei string) (bool, error) {
-	ctx := context.Background()
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
 	pattern := fmt.Sprintf("draft:%s:%s:*", uuid, imei)
-	keys, err := Client.Keys(ctx, pattern).Result()
-	return len(keys) > 0, err
+	var cursor uint64
+
+	for {
+		keys, nextCursor, err := Client.Scan(ctx, cursor, pattern, 32).Result()
+		if err != nil {
+			return false, err
+		}
+		if len(keys) > 0 {
+			return true, nil
+		}
+
+		cursor = nextCursor
+		if cursor == 0 {
+			return false, nil
+		}
+	}
 }
 
 func GetMergedDraft(uuid, imei string) (*ConfigurationDraftInsert, error) {
@@ -133,10 +153,11 @@ func GetMergedDraft(uuid, imei string) (*ConfigurationDraftInsert, error) {
 				merged.Changes[k] = v
 			}
 
-			merged.CfgHash = draft.CfgHash
-
-			if draft.Timestamp > merged.Timestamp {
+			// SCAN order is not deterministic. Keep metadata from the newest
+			// draft instead of letting the last scanned key choose cfg_hash.
+			if draft.Timestamp >= merged.Timestamp {
 				merged.Timestamp = draft.Timestamp
+				merged.CfgHash = draft.CfgHash
 			}
 		}
 
