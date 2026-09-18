@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# bash lw 862843047104450 ~/neosync/tcp-server/logs --from 01.07.2026 --to 23.07.2026
+# bash lw 862843047104450 ~/neosync/services/tcp/logs --from 01.07.2026 --to 23.07.2026
 
 set -euo pipefail
 
@@ -26,9 +26,9 @@ Options:
   -h, --help          Show this help
 
 Examples:
-  bash scripts/extract_imei_logs.sh 862843047104450 ~/neosync/tcp-server/logs
-  bash scripts/extract_imei_logs.sh 862843047104450 tcp-server/logs --from 01.07.2026 --to 15.07.2026
-  bash scripts/extract_imei_logs.sh 862843047104450 tcp-server/logs --from 20.07.2026 --stdout | less
+  bash scripts/extract_imei_logs.sh 862843047104450 ~/neosync/services/tcp/logs
+  bash scripts/extract_imei_logs.sh 862843047104450 services/tcp/logs --from 01.07.2026 --to 15.07.2026
+  bash scripts/extract_imei_logs.sh 862843047104450 services/tcp/logs --from 20.07.2026 --stdout | less
 
 Notes:
   - Matches lines containing imei={<IMEI>} in shared logs (server.log, session.log, warning.log, errors.log).

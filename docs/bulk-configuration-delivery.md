@@ -27,7 +27,7 @@ CONFIGURATION используется как ответ с текущей ко�
 
 ## Отправка и сроки
 
-Настройки находятся в `tcp-server/config/config.go`:
+Настройки находятся в `services/tcp/config/config.go`:
 
 | Настройка | Значение |
 |---|---|
@@ -75,10 +75,10 @@ CONFIGURATION используется как ответ с текущей ко�
 PostgreSQL. Указать его URL в `NEOSYNC_TEST_DATABASE_URL` и выполнить:
 
 ```text
-cd tcp-server
+cd services/tcp
 go test ./...
 
-cd ../http-server
+cd ../http
 go test ./infra/store/postgres/store ./handler/v1/company_handler_v1
 ```
 

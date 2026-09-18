@@ -5,8 +5,8 @@
 #   bash scripts/extract_imei_logs.sh <IMEI> <logs_path> [--from DD.MM.YYYY] [--to DD.MM.YYYY]
 #
 # Usage:
-#   bash scripts/analyze_imei_traffic.sh 862843047104450 tcp-server/logs
-#   bash scripts/analyze_imei_traffic.sh 862843047104450 tcp-server/logs --from 01.06.2026 --to 30.06.2026
+#   bash scripts/analyze_imei_traffic.sh 862843047104450 services/tcp/logs
+#   bash scripts/analyze_imei_traffic.sh 862843047104450 services/tcp/logs --from 01.06.2026 --to 30.06.2026
 #
 # Fix CRLF on server: sed -i 's/\r$//' scripts/analyze_imei_traffic.sh
 
@@ -23,8 +23,8 @@ Usage:
   analyze_imei_traffic.sh <IMEI> <logs_path> [--from DD.MM.YYYY] [--to DD.MM.YYYY]
 
 Examples:
-  bash scripts/analyze_imei_traffic.sh 862843047104450 ~/neosync/tcp-server/logs
-  bash scripts/analyze_imei_traffic.sh 862843047104450 tcp-server/logs --from 01.06.2026 --to 30.06.2026
+  bash scripts/analyze_imei_traffic.sh 862843047104450 ~/neosync/services/tcp/logs
+  bash scripts/analyze_imei_traffic.sh 862843047104450 services/tcp/logs --from 01.06.2026 --to 30.06.2026
 EOF
 }
 
@@ -254,6 +254,6 @@ cp "$DAILY" "./${IMEI}-traffic-daily.tsv" 2>/dev/null && echo "Saved: ./${IMEI}-
 
 echo ""
 echo "--- Find archived logs (run manually) ---"
-echo "  find tcp-server/logs -name 'log_*.zip' | head"
-echo "  find tcp-server/logs -name '${IMEI}.log' | sort"
-echo "  ls -la tcp-server/logs/log_0{1..19}062026/ 2>/dev/null | head"
+echo "  find services/tcp/logs -name 'log_*.zip' | head"
+echo "  find services/tcp/logs -name '${IMEI}.log' | sort"
+echo "  ls -la services/tcp/logs/log_0{1..19}062026/ 2>/dev/null | head"
