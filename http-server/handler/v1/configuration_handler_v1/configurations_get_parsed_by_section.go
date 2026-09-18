@@ -176,7 +176,7 @@ func (h *Handler) GetConfigurationParsedBySectionHandler_V1(w http.ResponseWrite
 			sendSSEMessage(w, flusher, "error", tr.TErr("config-fetch-error"))
 			return nil
 		}
-		if configuration.CfgData == nil {
+		if configuration == nil || configuration.CfgData == nil {
 			sendSSEMessage(w, flusher, "error", tr.TErr("config-fetch-error"))
 			return nil
 		}
