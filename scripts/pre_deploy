@@ -21,7 +21,7 @@ GO_VERSION="1.23.0"
 BRANCH="$(git rev-parse --abbrev-ref HEAD)"
 
 HOME="$(git rev-parse --show-toplevel)"
-FILE_CONFIG="apps/web/apps/.config/config.client.ts"
+FILE_CONFIG="apps/web/src/.config/config.client.ts"
 FILE_GO_HTTP="services/http/cmd/server/main.go"
 FILE_GO_TCP="services/tcp/cmd/server/main.go"
 

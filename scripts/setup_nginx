@@ -14,7 +14,7 @@ NC='\033[0m'
 
 HOME="$(git rev-parse --show-toplevel)"
 
-FILE_CONFIG="apps/web/apps/.config/config.client.ts"
+FILE_CONFIG="apps/web/src/.config/config.client.ts"
 NGINX_HTML_DIR='/usr/share/nginx/html/neosync'
 DIST_DIR='dist'
 
