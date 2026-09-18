@@ -140,7 +140,7 @@ func (sm *SessionMemory) shutdownSession(session *types.TCPSession, imeiPrepare 
 	}
 
 	if session.InFlight != nil {
-		close(session.InFlight.AnswerCh)
+		close(session.InFlight.DoneCh)
 		session.InFlight = nil
 	}
 
@@ -331,7 +331,7 @@ func (sm *SessionMemory) ScheduleTelemetryCommands(imei string, commands []strin
 	session.Busy = true
 	session.Mu.Unlock()
 
-	go sm.runQueue(session)
+	go sm.runQueue(session, imeiPrepare)
 }
 
 func (sm *SessionMemory) DeliverCommandAnswer(imei, answer string) {
@@ -432,6 +432,7 @@ func (sm *SessionMemory) runQueue(session *types.TCPSession, imeiPrepare string)
 		inFlight := &types.InFlightCommand{
 			Cmd:      cmd,
 			AnswerCh: make(chan string, 1),
+			DoneCh:   make(chan struct{}),
 		}
 		session.InFlight = inFlight
 		session.Mu.Unlock()
@@ -458,13 +459,24 @@ func (sm *SessionMemory) runQueue(session *types.TCPSession, imeiPrepare string)
 
 		timer := time.NewTimer(timeout)
 		select {
-		case answer, ok := <-inFlight.AnswerCh:
-			timer.Stop()
-			if !ok {
-				return
+		case answer := <-inFlight.AnswerCh:
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
 			}
 
 			sm.HandleCommandAnswer(answer, inFlight.Cmd)
+
+		case <-inFlight.DoneCh:
+			if !timer.Stop() {
+				select {
+				case <-timer.C:
+				default:
+				}
+			}
+			return
 
 		case <-timer.C:
 			if session.Device != nil {
