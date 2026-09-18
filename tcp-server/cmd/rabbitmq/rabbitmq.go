@@ -78,12 +78,23 @@ func (r *RabbitMQ) handleReconnect() {
 		}
 
 		r.mutex.Lock()
+		if r.closed {
+			r.mutex.Unlock()
+			return
+		}
 		r.isReady = false
 		r.mutex.Unlock()
 
 		logger.Error("handleReconnect: RabbitMQ disconnected. Trying to reconnect.")
 
 		for {
+			r.mutex.Lock()
+			closed := r.closed
+			r.mutex.Unlock()
+			if closed {
+				return
+			}
+
 			newConn, dialErr := amqp.DialConfig(r.amqpURL, amqp.Config{
 				Heartbeat: 10 * time.Second,
 			})
@@ -95,6 +106,12 @@ func (r *RabbitMQ) handleReconnect() {
 			}
 
 			r.mutex.Lock()
+			if r.closed {
+				r.mutex.Unlock()
+				_ = newConn.Close()
+				return
+			}
+
 			r.conn = newConn
 
 			if initErr := r.initChannels(); initErr != nil {
@@ -206,32 +223,56 @@ func (r *RabbitMQ) startConsumers() error {
 }
 
 func (r *RabbitMQ) Close() {
-	close(r.poolChannel)
-
-	for ch := range r.poolChannel {
-		ch.Close()
+	r.mutex.Lock()
+	if r.closed {
+		r.mutex.Unlock()
+		return
 	}
 
-	if r.consumeChannel != nil {
-		_ = r.consumeChannel.Close()
+	r.closed = true
+	r.isReady = false
+
+	consumeChannel := r.consumeChannel
+	conn := r.conn
+
+	r.consumeChannel = nil
+	r.conn = nil
+	r.poolChannel = nil
+	r.mutex.Unlock()
+
+	// Closing the AMQP connection closes all channels that belong to it. Do not
+	// close the pool channel itself: an in-flight publisher may still be
+	// returning its borrowed AMQP channel to that old pool.
+	if consumeChannel != nil {
+		_ = consumeChannel.Close()
 	}
 
-	if r.conn != nil {
-		_ = r.conn.Close()
+	if conn != nil {
+		_ = conn.Close()
 	}
 }
 
 func (r *RabbitMQ) Publish(queue string, buffer []byte) error {
 	r.mutex.Lock()
-	ready := r.isReady
+	ready := r.isReady && !r.closed
+	pool := r.poolChannel
+	conn := r.conn
 	r.mutex.Unlock()
 
-	if !ready {
+	if !ready || pool == nil || conn == nil {
 		return fmt.Errorf("Publish: RabbitMQ not ready")
 	}
 
-	ch := <-r.poolChannel
-	defer func() { r.poolChannel <- ch }()
+	ch, ok := <-pool
+	if !ok || ch == nil {
+		return fmt.Errorf("Publish: RabbitMQ channel pool unavailable")
+	}
+
+	defer func() {
+		if ch != nil {
+			pool <- ch
+		}
+	}()
 
 	err := ch.Publish(
 		"",
@@ -245,11 +286,15 @@ func (r *RabbitMQ) Publish(queue string, buffer []byte) error {
 		},
 	)
 
-	/* Recreate channel */
 	if err != nil {
-		channel, channelErr := r.conn.Channel()
+		_ = ch.Close()
+		ch = nil
+
+		// Recreate only from the same connection generation that supplied the
+		// borrowed channel. A reconnect may already have installed a new pool.
+		replacement, channelErr := conn.Channel()
 		if channelErr == nil {
-			ch = channel
+			ch = replacement
 		}
 
 		return err
