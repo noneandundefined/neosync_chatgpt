@@ -288,6 +288,7 @@ export const basicConfigurationExport = async (imei: string) => {
 
 	link.click();
 	link.remove();
+	window.URL.revokeObjectURL(url);
 
 	toast.success(i18next.t('message.file-export-success'));
 };
