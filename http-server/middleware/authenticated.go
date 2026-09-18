@@ -24,7 +24,7 @@ var (
 	analyticsUserOnlineTTL      = 5 * time.Minute
 )
 
-func trackUserOnlineAsync(ctx context.Context, h *handler.BaseHandler, userUUID string) {
+func trackUserOnlineAsync(_ context.Context, h *handler.BaseHandler, userUUID string) {
 	now := time.Now()
 
 	analyticsUserOnlineMu.Lock()
@@ -33,10 +33,21 @@ func trackUserOnlineAsync(ctx context.Context, h *handler.BaseHandler, userUUID 
 		analyticsUserOnlineMu.Unlock()
 		return
 	}
+
+	// Drop expired entries while we already hold the lock. Without cleanup this
+	// process-level map grows for every user ever seen by this server instance.
+	for uuid, seenAt := range analyticsUserOnlineLastSeen {
+		if now.Sub(seenAt) >= analyticsUserOnlineTTL {
+			delete(analyticsUserOnlineLastSeen, uuid)
+		}
+	}
 	analyticsUserOnlineLastSeen[userUUID] = now
 	analyticsUserOnlineMu.Unlock()
 
 	go func() {
+		ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+		defer cancel()
+
 		if err := h.Store.Analytics.Create_AnalyticsUser(ctx, &models.AnalyticsUser{
 			UserUUID: userUUID,
 			IsOnline: true,
